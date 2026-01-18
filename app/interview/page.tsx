@@ -105,13 +105,25 @@ export default function InterviewPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const formData = new FormData(e.currentTarget);
-    const result = await submitInterview(formData);
+    try {
+      const formData = new FormData(e.currentTarget);
+      const result = await submitInterview(formData);
 
-    if (result.success) {
-      router.push("/interview/success");
-    } else {
-      alert(result.message);
+      if (result.success) {
+        router.push("/interview/success");
+      } else {
+        console.error("Interview submission error:", result.message);
+        alert(
+          result.message ||
+            "Failed to submit interview responses. Please try again."
+        );
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      console.error("Unexpected error submitting interview:", error);
+      alert(
+        "An unexpected error occurred. Please check the console for details and try again."
+      );
       setIsSubmitting(false);
     }
   };

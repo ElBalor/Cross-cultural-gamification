@@ -2,6 +2,7 @@ import { sql } from "@vercel/postgres";
 
 export async function initDatabase() {
   try {
+    // Create survey_responses table
     await sql`
       CREATE TABLE IF NOT EXISTS survey_responses (
         id SERIAL PRIMARY KEY,
@@ -15,6 +16,7 @@ export async function initDatabase() {
       )
     `;
 
+    // Create interview_responses table
     await sql`
       CREATE TABLE IF NOT EXISTS interview_responses (
         id SERIAL PRIMARY KEY,
@@ -25,13 +27,47 @@ export async function initDatabase() {
       )
     `;
 
-    await sql`
-      CREATE INDEX IF NOT EXISTS idx_survey_embeddings ON survey_responses USING GIN (embeddings)
-    `;
+    // Create indexes (these may fail if embeddings column doesn't support GIN, so we catch errors)
+    try {
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_survey_embeddings ON survey_responses USING GIN (embeddings)
+      `;
+    } catch (indexError) {
+      console.warn(
+        "Could not create survey embeddings index (this is usually fine):",
+        indexError
+      );
+    }
 
-    await sql`
-      CREATE INDEX IF NOT EXISTS idx_interview_embeddings ON interview_responses USING GIN (embeddings)
-    `;
+    try {
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_interview_embeddings ON interview_responses USING GIN (embeddings)
+      `;
+    } catch (indexError) {
+      console.warn(
+        "Could not create interview embeddings index (this is usually fine):",
+        indexError
+      );
+    }
+
+    // Create basic indexes for created_at
+    try {
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_survey_created_at ON survey_responses(created_at)
+      `;
+    } catch (indexError) {
+      console.warn("Could not create survey created_at index:", indexError);
+    }
+
+    try {
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_interview_created_at ON interview_responses(created_at)
+      `;
+    } catch (indexError) {
+      console.warn("Could not create interview created_at index:", indexError);
+    }
+
+    console.log("Database initialized successfully");
   } catch (error) {
     console.error("Database initialization error:", error);
     throw error;

@@ -1,10 +1,17 @@
 "use server";
 
-import { saveSurveyResponse, saveInterviewResponse } from "@/lib/db";
+import {
+  saveSurveyResponse,
+  saveInterviewResponse,
+  initDatabase,
+} from "@/lib/db";
 import { mlEncoder } from "@/lib/ml-encoder";
 
 export async function submitSurvey(formData: FormData) {
   try {
+    // Initialize database tables if they don't exist
+    await initDatabase();
+
     const data = {
       sectionA: {
         age: formData.get("age") as string,
@@ -59,15 +66,20 @@ export async function submitSurvey(formData: FormData) {
     };
   } catch (error) {
     console.error("Error submitting survey:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return {
       success: false,
-      message: "Failed to submit survey. Please try again.",
+      message: `Failed to submit survey: ${errorMessage}. Please check your database connection and try again.`,
     };
   }
 }
 
 export async function submitInterview(formData: FormData) {
   try {
+    // Initialize database tables if they don't exist
+    await initDatabase();
+
     const data = {
       motivation: formData.get("motivation") as string,
       previousApps: formData.get("previousApps") as string,
@@ -100,9 +112,11 @@ export async function submitInterview(formData: FormData) {
     };
   } catch (error) {
     console.error("Error submitting interview:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return {
       success: false,
-      message: "Failed to submit interview responses. Please try again.",
+      message: `Failed to submit interview responses: ${errorMessage}. Please check your database connection and try again.`,
     };
   }
 }

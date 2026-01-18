@@ -51,8 +51,8 @@ async function analyzeClusters() {
   const surveys = await getAllSurveyResponses();
 
   const embeddings = surveys
-    .filter((s) => s.embeddings?.responseVector?.values)
-    .map((s) => ({
+    .filter((s: any) => s.embeddings?.responseVector?.values)
+    .map((s: any) => ({
       values: s.embeddings.responseVector.values,
       dimension: s.embeddings.responseVector.dimension,
     }));
@@ -106,11 +106,11 @@ async function analyzeFeatureImportance() {
     unlockableContent: { sum: 0, count: 0, avg: 0 },
   };
 
-  surveys.forEach((survey) => {
+  surveys.forEach((survey: any) => {
     const sectionB = survey.section_b;
-    Object.keys(featureScores).forEach((feature) => {
+    Object.keys(featureScores).forEach((feature: string) => {
       if (sectionB[feature] && typeof sectionB[feature] === "number") {
-        featureScores[feature].sum += sectionB[feature];
+        featureScores[feature].sum += sectionB[feature] as number;
         featureScores[feature].count++;
       }
     });
@@ -146,7 +146,7 @@ async function analyzeCulturalPatterns() {
     Maybe: 0,
   };
 
-  surveys.forEach((survey) => {
+  surveys.forEach((survey: any) => {
     if (survey.section_a?.country) {
       countries[survey.section_a.country] =
         (countries[survey.section_a.country] || 0) + 1;
@@ -185,7 +185,7 @@ async function analyzeSentiment() {
   let count = 0;
 
   const allResponses = surveys.concat(interviews);
-  allResponses.forEach((response) => {
+  allResponses.forEach((response: any) => {
     if (response.ml_metadata?.sentiment) {
       const sentiment = response.ml_metadata.sentiment;
       const label = sentiment.label as keyof typeof sentimentDistribution;
@@ -237,7 +237,7 @@ function analyzeClusterCharacteristics(clusterSurveys: any[]) {
 
   const avgActivity =
     clusterSurveys
-      .map((s) => {
+      .map((s: any) => {
         const freq = s.section_a?.activityFrequency;
         if (freq === "5+ days") return 5;
         if (freq === "3-4 days") return 3.5;
@@ -248,7 +248,7 @@ function analyzeClusterCharacteristics(clusterSurveys: any[]) {
 
   const avgEngagement =
     clusterSurveys
-      .map((s) => {
+      .map((s: any) => {
         const sectionD = s.section_d || {};
         return (
           ((sectionD.consistency || 0) +
@@ -258,10 +258,10 @@ function analyzeClusterCharacteristics(clusterSurveys: any[]) {
           4
         );
       })
-      .reduce((a, b) => a + b, 0) / clusterSurveys.length;
+      .reduce((a: number, b: number) => a + b, 0) / clusterSurveys.length;
 
   const culturalInterest =
-    clusterSurveys.filter((s) => s.section_c?.culturalMotivation === "Yes")
+    clusterSurveys.filter((s: any) => s.section_c?.culturalMotivation === "Yes")
       .length / clusterSurveys.length;
 
   return {
