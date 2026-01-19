@@ -1,6 +1,17 @@
 import { sql } from "@vercel/postgres";
 
+// Fallback for Neon individual env vars if POSTGRES_URL is missing
+if (!process.env.POSTGRES_URL && process.env.PGHOST_UNPOOLED) {
+  const user = process.env.PGUSER || "neondb_owner";
+  const pass = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD;
+  const host = process.env.PGHOST_UNPOOLED;
+  const db = process.env.PGDATABASE || process.env.POSTGRES_DATABASE;
+  process.env.POSTGRES_URL = `postgres://${user}:${pass}@${host}/${db}?sslmode=require`;
+  console.log("Constructed POSTGRES_URL from individual variables");
+}
+
 export async function initDatabase() {
+  console.log("Initializing database... URL present:", !!process.env.POSTGRES_URL);
   try {
     // Create survey_responses table
     await sql`

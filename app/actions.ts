@@ -1,5 +1,7 @@
 "use server";
 
+export const dynamic = "force-dynamic";
+
 import {
   saveSurveyResponse,
   saveInterviewResponse,
