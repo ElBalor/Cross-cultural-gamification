@@ -168,6 +168,34 @@ export async function getAllInterviewResponses() {
   }
 }
 
+export async function getSurveyResponseById(id: number) {
+  try {
+    const result = await sql`
+      SELECT id, section_a, section_b, section_c, section_d, embeddings, ml_metadata, created_at
+      FROM survey_responses
+      WHERE id = ${id}
+    `;
+    return result.rows[0];
+  } catch (error) {
+    console.error(`Error fetching survey response ${id}:`, error);
+    return null;
+  }
+}
+
+export async function getInterviewResponseById(id: number) {
+  try {
+    const result = await sql`
+      SELECT id, responses, embeddings, ml_metadata, created_at
+      FROM interview_responses
+      WHERE id = ${id}
+    `;
+    return result.rows[0];
+  } catch (error) {
+    console.error(`Error fetching interview response ${id}:`, error);
+    return null;
+  }
+}
+
 export async function findSimilarResponses(
   embedding: number[],
   limit: number = 5
