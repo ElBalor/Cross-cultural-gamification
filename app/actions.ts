@@ -50,15 +50,20 @@ export async function submitSurvey(formData: FormData) {
       },
     };
 
-    const encodedResponse = await mlEncoder.encodeSurveyResponse(data);
+    let encodedResponse = null;
+    try {
+      encodedResponse = await mlEncoder.encodeSurveyResponse(data);
+    } catch (mlError) {
+      console.error("ML Encoding failed, continuing without it:", mlError);
+    }
 
     const result = await saveSurveyResponse({
       ...data,
-      embeddings: {
+      embeddings: encodedResponse ? {
         textEmbeddings: encodedResponse.textEmbeddings,
         responseVector: encodedResponse.responseVector,
-      },
-      mlMetadata: encodedResponse.metadata,
+      } : null,
+      mlMetadata: encodedResponse ? encodedResponse.metadata : { note: "ML fallback used" },
     });
 
     return {
@@ -98,15 +103,20 @@ export async function submitInterview(formData: FormData) {
       reminders: formData.get("reminders") as string,
     };
 
-    const encodedResponse = await mlEncoder.encodeInterviewResponse(data);
+    let encodedResponse = null;
+    try {
+      encodedResponse = await mlEncoder.encodeInterviewResponse(data);
+    } catch (mlError) {
+      console.error("ML Encoding failed for interview, continuing:", mlError);
+    }
 
     const result = await saveInterviewResponse({
       responses: data,
-      embeddings: {
+      embeddings: encodedResponse ? {
         textEmbeddings: encodedResponse.textEmbeddings,
         responseVector: encodedResponse.responseVector,
-      },
-      mlMetadata: encodedResponse.metadata,
+      } : null,
+      mlMetadata: encodedResponse ? encodedResponse.metadata : { note: "ML fallback used" },
     });
 
     return {
