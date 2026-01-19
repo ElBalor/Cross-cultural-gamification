@@ -8,9 +8,11 @@ import {
 import { mlEncoder } from "@/lib/ml-encoder";
 
 export async function submitSurvey(formData: FormData) {
+  console.log("Starting survey submission...");
   try {
     // Initialize database tables if they don't exist
-    await initDatabase();
+    await initDatabase().catch(err => console.error("DB Init warning:", err));
+    console.log("Database checked/initialized");
 
     const data = {
       sectionA: {
@@ -76,9 +78,11 @@ export async function submitSurvey(formData: FormData) {
 }
 
 export async function submitInterview(formData: FormData) {
+  console.log("Starting interview submission...");
   try {
     // Initialize database tables if they don't exist
-    await initDatabase();
+    await initDatabase().catch(err => console.error("DB Init warning:", err));
+    console.log("Database checked/initialized for interview");
 
     const data = {
       motivation: formData.get("motivation") as string,

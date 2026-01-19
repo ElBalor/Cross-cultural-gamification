@@ -61,6 +61,9 @@ class MLEncoder {
     const workingEndpoint = `https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5`;
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
       let response = await fetch(workingEndpoint, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -68,12 +71,19 @@ class MLEncoder {
         },
         method: "POST",
         body: JSON.stringify({ inputs: text }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       // Handle 503 (model loading) - wait and retry
       if (response.status === 503) {
-        console.log("Model is loading, waiting 10 seconds and retrying...");
-        await new Promise((resolve) => setTimeout(resolve, 10000));
+        console.log("Model is loading, waiting 2 seconds and retrying...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        
+        const retryController = new AbortController();
+        const retryTimeoutId = setTimeout(() => retryController.abort(), 5000);
+        
         response = await fetch(workingEndpoint, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -81,7 +91,9 @@ class MLEncoder {
           },
           method: "POST",
           body: JSON.stringify({ inputs: text }),
+          signal: retryController.signal,
         });
+        clearTimeout(retryTimeoutId);
       }
 
       // If still fails, try fallback
