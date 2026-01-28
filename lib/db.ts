@@ -141,6 +141,10 @@ export async function saveInterviewResponse(data: {
 }
 
 export async function getAllSurveyResponses() {
+  if (!process.env.POSTGRES_URL && !process.env.DATABASE_URL) {
+    console.warn("Database connection string missing. Returning empty array.");
+    return [];
+  }
   try {
     const result = await sql`
       SELECT id, section_a, section_b, section_c, section_d, embeddings, ml_metadata, created_at
@@ -150,11 +154,15 @@ export async function getAllSurveyResponses() {
     return result.rows;
   } catch (error) {
     console.error("Error fetching survey responses:", error);
-    throw error;
+    return []; // Return empty instead of throwing
   }
 }
 
 export async function getAllInterviewResponses() {
+  if (!process.env.POSTGRES_URL && !process.env.DATABASE_URL) {
+    console.warn("Database connection string missing. Returning empty array.");
+    return [];
+  }
   try {
     const result = await sql`
       SELECT id, responses, embeddings, ml_metadata, created_at
@@ -164,7 +172,7 @@ export async function getAllInterviewResponses() {
     return result.rows;
   } catch (error) {
     console.error("Error fetching interview responses:", error);
-    throw error;
+    return []; // Return empty instead of throwing
   }
 }
 

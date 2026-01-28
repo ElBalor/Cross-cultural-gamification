@@ -3,6 +3,7 @@
 import { useState, FormEvent } from "react";
 import { submitInterview } from "@/app/actions";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function InterviewPage() {
   const router = useRouter();
@@ -129,66 +130,71 @@ export default function InterviewPage() {
   };
 
   return (
-    <div className="min-h-screen p-3 sm:p-6 py-6 sm:py-10">
-      <div className="max-w-4xl mx-auto bg-white rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 sm:p-8 text-center">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-            🎤 Interview Questions
-          </h1>
-          <p className="text-sm sm:text-lg opacity-95">
-            More In-Depth Insights
-          </p>
+    <div className="min-h-screen p-4 sm:p-8 bg-gray-50/50">
+      <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 sm:p-10 text-center relative overflow-hidden">
+          <div className="relative z-10">
+            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-[0.2em] mb-2">
+              Deep Interview
+            </h1>
+            <p className="text-xs sm:text-sm font-bold opacity-80 uppercase tracking-widest">
+              Qualitative Behavioral Analysis
+            </p>
+          </div>
+          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+            <svg width="100%" height="100%"><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1"/></pattern><rect width="100%" height="100%" fill="url(#grid)" /></svg>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-8">
-          <div className="mb-4 sm:mb-6 text-gray-600 text-sm sm:text-base">
-            <p>
-              These questions provide deeper insights into your experiences and
-              preferences. Please share your thoughts in detail.
+        <form onSubmit={handleSubmit} className="p-6 sm:p-10">
+          <div className="mb-10 p-5 bg-indigo-50 rounded-2xl border border-indigo-100">
+            <p className="text-indigo-700 text-sm font-medium italic">
+              "Your detailed responses allow our neural engines to map cultural fitness motivations more accurately. Please be as descriptive as possible."
             </p>
           </div>
 
-          <div className="space-y-6 sm:space-y-10 max-h-[70vh] overflow-y-auto pr-2 sm:pr-4">
+          <div className="space-y-12">
             {questions.map((category, catIndex) => (
               <section
                 key={catIndex}
-                className="pb-6 sm:pb-8 border-b border-gray-200 last:border-0"
+                className="pb-10 border-b border-gray-100 last:border-0"
               >
-                <h3 className="text-lg sm:text-xl font-bold text-indigo-600 mb-4 sm:mb-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 border border-gray-200">
                   {category.category}
-                </h3>
+                </div>
 
-                {category.items.map((item) => (
-                  <div key={item.number} className="mb-6 sm:mb-8">
-                    <label className="block text-gray-700 font-semibold mb-2 sm:mb-3 text-base sm:text-lg">
-                      {item.number}. {item.question}
-                    </label>
-                    <textarea
-                      name={item.field}
-                      rows={5}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-indigo-600 focus:outline-none resize-y"
-                      placeholder="Share your thoughts in detail..."
-                    />
-                  </div>
-                ))}
+                <div className="space-y-8">
+                  {category.items.map((item) => (
+                    <div key={item.number} className="space-y-4">
+                      <label className="block text-gray-700 font-bold text-base sm:text-lg leading-tight">
+                        <span className="text-indigo-600 mr-2">Q{item.number}.</span> {item.question}
+                      </label>
+                      <textarea
+                        name={item.field}
+                        rows={4}
+                        className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-600 focus:bg-white transition-all outline-none font-medium text-sm sm:text-base placeholder:text-gray-300"
+                        placeholder="Neural signal processing requires text input here..."
+                      />
+                    </div>
+                  ))}
+                </div>
               </section>
             ))}
           </div>
 
-          <div className="pt-6 sm:pt-8 border-t border-gray-200 mt-6 sm:mt-8 flex flex-col sm:flex-row justify-between gap-3 sm:gap-4">
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="bg-gray-200 text-gray-700 px-6 sm:px-8 py-3 rounded-lg font-semibold text-sm sm:text-base hover:bg-gray-300 transition-all"
+          <div className="pt-10 border-t border-gray-100 mt-10 flex flex-col sm:flex-row justify-between gap-4">
+            <Link
+              href="/"
+              className="w-full sm:w-auto px-8 py-4 bg-gray-100 text-gray-400 rounded-2xl font-black uppercase tracking-widest text-center transition-all hover:bg-gray-200"
             >
-              Skip Interview
-            </button>
+              Abort Mission
+            </Link>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 sm:px-12 py-3 rounded-lg font-semibold text-sm sm:text-lg hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full sm:w-auto px-12 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 disabled:opacity-50"
             >
-              {isSubmitting ? "Submitting..." : "Submit Interview Responses"}
+              {isSubmitting ? "Uploading..." : "Submit Intelligence"}
             </button>
           </div>
         </form>
