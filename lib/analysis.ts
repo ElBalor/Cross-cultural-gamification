@@ -243,16 +243,17 @@ function analyzeClusterCharacteristics(clusterSurveys: any[]) {
   };
 }
 
-/**
- * Translates survey data into a tool configuration.
- */
 export interface ToolConfig {
   showLeaderboard: boolean;
+  leaderboardVotes: number;
   showSocial: boolean;
+  socialVotes: number;
   showRewards: boolean;
+  rewardsVotes: number;
   theme: 'nigerian-vibrant' | 'minimalist' | 'classic';
   primaryFocus: string;
   suggestedMusic: string;
+  totalParticipants: number;
 }
 
 export function getPrototypeConfig(surveyResponse: any): ToolConfig {
@@ -260,66 +261,60 @@ export function getPrototypeConfig(surveyResponse: any): ToolConfig {
   const sc = surveyResponse.section_c || {};
   const sd = surveyResponse.section_d || {};
 
-  // Simple logic based on user scores (1-5 scale)
-  const showLeaderboard = (sb.leaderboards || 0) >= 4;
-  const showSocial = (sb.socialSharing || 0) >= 3;
-  const showRewards = (sb.pointsRewards || 0) >= 4;
-
-  // Cultural theme selection
-  let theme: ToolConfig['theme'] = 'classic';
-  if (sc.culturalMotivation === 'Yes' || sc.country === 'Nigeria') {
-    theme = 'nigerian-vibrant';
-  } else if ((sb.unlockableContent || 0) < 3) {
-    theme = 'minimalist';
-  }
-
-  // Music suggestion based on text input
-  let suggestedMusic = 'Global Top 50';
-  const elements = sc.culturalElements?.toLowerCase() || '';
-  if (elements.includes('afro') || elements.includes('nigeria') || elements.includes('naija')) {
-    suggestedMusic = 'Afrobeats Motivation';
-  }
-
   return {
-    showLeaderboard,
-    showSocial,
-    showRewards,
-    theme,
+    showLeaderboard: (sb.leaderboards || 0) >= 4,
+    leaderboardVotes: 1, 
+    showSocial: (sb.socialSharing || 0) >= 3,
+    socialVotes: 1,
+    showRewards: (sb.pointsRewards || 0) >= 4,
+    rewardsVotes: 1,
+    theme: (sc.culturalMotivation === 'Yes' || sc.country === 'Nigeria') ? 'nigerian-vibrant' : 'classic',
     primaryFocus: sd.visualProgress > sd.enjoyment ? 'Progress Data' : 'Fun & Flow',
-    suggestedMusic
+    suggestedMusic: 'Personalized Mix',
+    totalParticipants: 1
   };
 }
 
 /**
  * Calculates the 'Consensus Design' based on aggregate research data.
- * This represents the 'Designed Tool' mentioned in Objective (ii).
  */
 export async function getConsensusConfig(): Promise<ToolConfig> {
+  const surveys = await getAllSurveyResponses();
+  const interviews = await getAllInterviewResponses();
+  const total = surveys.length + interviews.length;
+
   const [features, cultural] = await Promise.all([
     analyzeFeatureImportance(),
     analyzeCulturalPatterns()
   ]);
 
-  // Higher than 3.5 avg means the majority chose it as important
-  const showLeaderboard = (features.features.find(f => f.name === 'leaderboards')?.avg || 0) > 3.5;
-  const showSocial = (features.features.find(f => f.name === 'socialSharing')?.avg || 0) > 3.0;
-  const showRewards = (features.features.find(f => f.name === 'pointsRewards')?.avg || 0) > 3.5;
+  // Calculate percentages based on people who rated 4 or 5
+  const getVoteData = (name: string) => {
+    const feature = features.features.find(f => f.name === name);
+    return {
+      show: (feature?.avg || 0) > 3.5,
+      count: feature?.count || 0
+    };
+  };
 
-  // Theme based on majority motivation
-  const naijaMotivation = (cultural.culturalMotivation['Yes'] || 0) > (cultural.culturalMotivation['No'] || 0);
-  
+  const leaderboard = getVoteData('leaderboards');
+  const social = getVoteData('socialSharing');
+  const rewards = getVoteData('pointsRewards');
+
   // Top cultural keyword for music
-  const topKeyword = cultural.culturalKeywords[0]?.keyword || '';
-  const suggestedMusic = topKeyword.includes('afro') || topKeyword.includes('naija') 
-    ? 'Afrobeats Consensus Mix' 
-    : 'Global Research Playlist';
+  const topKeyword = cultural.culturalKeywords[0]?.keyword || 'Local';
+  const suggestedMusic = `${topKeyword.toUpperCase()} Consensus Mix`;
 
   return {
-    showLeaderboard,
-    showSocial,
-    showRewards,
-    theme: naijaMotivation ? 'nigerian-vibrant' : 'classic',
-    primaryFocus: 'Consensus-Driven Design',
-    suggestedMusic
+    showLeaderboard: leaderboard.show,
+    leaderboardVotes: Math.round((leaderboard.count / Math.max(total, 1)) * 100),
+    showSocial: social.show,
+    socialVotes: Math.round((social.count / Math.max(total, 1)) * 100),
+    showRewards: rewards.show,
+    rewardsVotes: Math.round((rewards.count / Math.max(total, 1)) * 100),
+    theme: (cultural.culturalMotivation['Yes'] || 0) > 0 ? 'nigerian-vibrant' : 'classic',
+    primaryFocus: 'Majority Consensus',
+    suggestedMusic,
+    totalParticipants: total
   };
 }
