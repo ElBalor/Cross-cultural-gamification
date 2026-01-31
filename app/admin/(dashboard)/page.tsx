@@ -44,9 +44,14 @@ export default async function AdminDashboard() {
                       sentiment.label === 'negative' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
                     }`}>{sentiment.label}</span>
                   </div>
-                  <Link href={`/admin/survey/${survey.id}`} className="block w-full text-center py-2.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all border border-indigo-100/50">
-                    View Trace
-                  </Link>
+                  <div className="flex gap-2">
+                    <Link href={`/admin/survey/${survey.id}`} className="flex-1 text-center py-2.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all border border-indigo-100/50">
+                      View Trace
+                    </Link>
+                    <Link href={`/gamification-tool?id=${survey.id}`} className="flex-1 text-center py-2.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all border border-green-100/50">
+                      Tool
+                    </Link>
+                  </div>
                 </div>
               );
             })
@@ -89,10 +94,15 @@ export default async function AdminDashboard() {
                         sentiment.label === 'negative' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
                       }`}>{sentiment.label}</span>
                     </td>
-                    <td className="px-6 py-5 text-right">
-                      <Link href={`/admin/survey/${survey.id}`} className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-indigo-600 hover:text-white transition-all inline-flex shadow-sm border border-gray-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      </Link>
+                    <td className="px-6 py-5 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/admin/survey/${survey.id}`} className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-indigo-600 hover:text-white transition-all inline-flex shadow-sm border border-gray-100" title="View Details">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </Link>
+                        <Link href={`/gamification-tool?id=${survey.id}`} className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-green-600 hover:text-white transition-all inline-flex shadow-sm border border-gray-100" title="Check Tool Adaptation">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 22 4-10 4 10"/><path d="M12 18h.01"/></svg>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );

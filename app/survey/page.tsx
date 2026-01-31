@@ -8,6 +8,7 @@ export default function SurveyPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [responseId, setResponseId] = useState<number | null>(null);
   const [showOtherBarriers, setShowOtherBarriers] = useState(false);
   const [currentSection, setCurrentSection] = useState(0);
 
@@ -50,6 +51,7 @@ export default function SurveyPage() {
       const result = await submitSurvey(formData);
       if (result.success) {
         setIsSuccess(true);
+        setResponseId(result.id || null);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
         alert(result.message || "Failed to submit survey.");
@@ -80,7 +82,11 @@ export default function SurveyPage() {
           <div className="p-8 sm:p-10 text-center">
             <p className="text-gray-600 mb-8 text-lg font-medium italic">Your participation accelerates our cultural AI research.</p>
             <div className="flex flex-col gap-4">
-              <Link href="/interview" className="w-full bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg">Continue to Interview</Link>
+              <Link href={`/gamification-tool${responseId ? `?id=${responseId}` : ''}`} className="w-full bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg flex items-center justify-center gap-3">
+                Experience Tool
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              </Link>
+              <Link href="/interview" className="w-full bg-indigo-50 text-indigo-600 px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-100 transition-all">Deep Interview</Link>
               <Link href="/" className="w-full bg-gray-100 text-gray-500 px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all">Return Home</Link>
             </div>
           </div>
