@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const ALLOWED_EMAILS = ["ogededora1@gmail.com", "heylelyaka@gmail.com"];
+const ALLOWED_EMAILS = ["ogededora1@gmail.com", "heylelyaka@gmail.com", "fareedmomodu2022@gmail.com"];
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
 export async function login(prevState: any, formData: FormData) {
