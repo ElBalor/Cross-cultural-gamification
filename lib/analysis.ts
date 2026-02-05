@@ -250,16 +250,67 @@ export interface ToolConfig {
   socialVotes: number;
   showRewards: boolean;
   rewardsVotes: number;
-  theme: 'nigerian-vibrant' | 'minimalist' | 'classic';
+  theme: 'nigerian-vibrant' | 'minimalist' | 'classic' | 'western-modern' | 'pan-african';
+  culturalContext: {
+    leaderboardName: string;
+    rewardName: string;
+    musicGenre: string;
+    locationSignal: string;
+  };
   primaryFocus: string;
   suggestedMusic: string;
   totalParticipants: number;
+}
+
+function getContextByCountry(country: string = '') {
+  const c = country.toLowerCase();
+  
+  if (c.includes('nigeria') || c.includes('naija')) {
+    return {
+      theme: 'nigerian-vibrant' as const,
+      leaderboardName: 'Lagos Hustle',
+      rewardName: 'Naija Giant',
+      musicGenre: 'Afrobeats Motivation',
+      locationSignal: 'West African Manifold'
+    };
+  }
+  
+  if (['ghana', 'kenya', 'south africa', 'ethiopia', 'africa'].some(name => c.includes(name))) {
+    return {
+      theme: 'pan-african' as const,
+      leaderboardName: 'Pan-African Peak',
+      rewardName: 'Savanna King',
+      musicGenre: 'African Fusion',
+      locationSignal: 'Continental Signal'
+    };
+  }
+
+  if (['usa', 'uk', 'canada', 'europe', 'australia'].some(name => c.includes(name))) {
+    return {
+      theme: 'western-modern' as const,
+      leaderboardName: 'Urban Sprint',
+      rewardName: 'Peak Performer',
+      musicGenre: 'Modern Pop Energy',
+      locationSignal: 'Western Manifold'
+    };
+  }
+
+  return {
+    theme: 'classic' as const,
+    leaderboardName: 'Global Rankings',
+    rewardName: 'Top Tier',
+    musicGenre: 'Global Top 50',
+    locationSignal: 'Universal Protocol'
+  };
 }
 
 export function getPrototypeConfig(surveyResponse: any): ToolConfig {
   const sb = surveyResponse.section_b || {};
   const sc = surveyResponse.section_c || {};
   const sd = surveyResponse.section_d || {};
+  const country = surveyResponse.section_a?.country || '';
+
+  const context = getContextByCountry(country);
 
   return {
     showLeaderboard: (sb.leaderboards || 0) >= 4,
@@ -268,9 +319,15 @@ export function getPrototypeConfig(surveyResponse: any): ToolConfig {
     socialVotes: 1,
     showRewards: (sb.pointsRewards || 0) >= 4,
     rewardsVotes: 1,
-    theme: (sc.culturalMotivation === 'Yes' || sc.country === 'Nigeria') ? 'nigerian-vibrant' : 'classic',
-    primaryFocus: sd.visualProgress > sd.enjoyment ? 'Progress Data' : 'Fun & Flow',
-    suggestedMusic: 'Personalized Mix',
+    theme: context.theme,
+    culturalContext: {
+      leaderboardName: context.leaderboardName,
+      rewardName: context.rewardName,
+      musicGenre: context.musicGenre,
+      locationSignal: context.locationSignal
+    },
+    primaryFocus: sd.visualProgress > sd.enjoyment ? 'Data Driven' : 'Experience Driven',
+    suggestedMusic: context.musicGenre,
     totalParticipants: 1
   };
 }
@@ -288,7 +345,10 @@ export async function getConsensusConfig(): Promise<ToolConfig> {
     analyzeCulturalPatterns()
   ]);
 
-  // Calculate percentages based on people who rated 4 or 5
+  // Majority country detection for consensus
+  const topCountry = cultural.countries[0]?.country || 'Nigeria';
+  const context = getContextByCountry(topCountry);
+
   const getVoteData = (name: string) => {
     const feature = features.features.find(f => f.name === name);
     return {
@@ -301,10 +361,6 @@ export async function getConsensusConfig(): Promise<ToolConfig> {
   const social = getVoteData('socialSharing');
   const rewards = getVoteData('pointsRewards');
 
-  // Top cultural keyword for music
-  const topKeyword = cultural.culturalKeywords[0]?.keyword || 'Local';
-  const suggestedMusic = `${topKeyword.toUpperCase()} Consensus Mix`;
-
   return {
     showLeaderboard: leaderboard.show,
     leaderboardVotes: Math.round((leaderboard.count / Math.max(total, 1)) * 100),
@@ -312,9 +368,15 @@ export async function getConsensusConfig(): Promise<ToolConfig> {
     socialVotes: Math.round((social.count / Math.max(total, 1)) * 100),
     showRewards: rewards.show,
     rewardsVotes: Math.round((rewards.count / Math.max(total, 1)) * 100),
-    theme: (cultural.culturalMotivation['Yes'] || 0) > 0 ? 'nigerian-vibrant' : 'classic',
-    primaryFocus: 'Majority Consensus',
-    suggestedMusic,
+    theme: context.theme,
+    culturalContext: {
+      leaderboardName: context.leaderboardName,
+      rewardName: context.rewardName,
+      musicGenre: context.musicGenre,
+      locationSignal: context.locationSignal
+    },
+    primaryFocus: 'Majority Choice',
+    suggestedMusic: context.musicGenre,
     totalParticipants: total
   };
 }
