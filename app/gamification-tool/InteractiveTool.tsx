@@ -19,6 +19,7 @@ export default function InteractiveTool({
   const [points, setPoints] = useState(2450);
   const [steps, setSteps] = useState(0); 
   const [calories, setCalories] = useState(0);
+  const [sensorActive, setSensorActive] = useState(false);
   
   const isNaija = config.theme === 'nigerian-vibrant';
   const isWestern = config.theme === 'western-modern';
@@ -26,33 +27,45 @@ export default function InteractiveTool({
 
   // Real-Time Pedometer Logic (Actual Movement)
   useEffect(() => {
-    let lastAcceleration = 0;
-    const threshold = 12; // Sensitivity for a 'step'
+    let lastStepTime = 0;
+    const stepCooldown = 300; // ms between steps to avoid double counting
+    const sensitivity = 10; // Lower = more sensitive
 
     const handleMotion = (event: DeviceMotionEvent) => {
-      const acc = event.accelerationIncludingGravity;
+      // Signal that the sensor is at least firing
+      if (!sensorActive) setSensorActive(true);
+
+      const acc = event.acceleration || event.accelerationIncludingGravity;
       if (!acc) return;
 
-      const totalAcc = Math.sqrt((acc.x || 0)**2 + (acc.y || 0)**2 + (acc.z || 0)**2);
-      const delta = Math.abs(totalAcc - lastAcceleration);
+      const x = acc.x || 0;
+      const y = acc.y || 0;
+      const z = acc.z || 0;
       
-      if (delta > threshold) {
+      const totalAcc = Math.sqrt(x*x + y*y + z*z);
+      
+      // Look for a significant 'spike' in movement
+      const now = Date.now();
+      if (totalAcc > sensitivity && (now - lastStepTime) > stepCooldown) {
         setSteps(prev => {
           const next = prev + 1;
           setCalories(Math.round(next * 0.04));
           if (next % 10 === 0) setPoints(p => p + 1);
           return next;
         });
+        lastStepTime = now;
       }
-      lastAcceleration = totalAcc;
     };
 
     if (isActive) {
       window.addEventListener("devicemotion", handleMotion);
     }
 
-    return () => window.removeEventListener("devicemotion", handleMotion);
-  }, [isActive]);
+    return () => {
+      window.removeEventListener("devicemotion", handleMotion);
+      setSensorActive(false);
+    };
+  }, [isActive, sensorActive]);
 
   const toggleSession = async () => {
     if (isActive) {
@@ -158,9 +171,19 @@ export default function InteractiveTool({
         {/* Core Tracker Section */}
         <div className={`p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] text-white shadow-xl transition-all duration-1000 ${isActive ? (isNaija ? 'bg-green-600' : isWestern ? 'bg-blue-600' : 'bg-indigo-600') : (isNaija ? 'bg-gradient-to-br from-green-600 to-indigo-950' : isWestern ? 'bg-gradient-to-br from-blue-600 to-indigo-900' : 'bg-gradient-to-br from-indigo-600 to-purple-700')}`}>
           <div className="flex justify-between items-start mb-4">
-            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] opacity-70">
-              {isActive ? 'Tracking Body Motion' : 'Sensor Offline'}
-            </span>
+            <div className="flex flex-col gap-1">
+              <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] opacity-70">
+                {isActive ? 'Tracking Body Motion' : 'Sensor Offline'}
+              </span>
+              {isActive && (
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${sensorActive ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+                  <span className="text-[7px] font-black uppercase tracking-widest opacity-50">
+                    {sensorActive ? 'Sensor Connected' : 'Waiting for Signal...'}
+                  </span>
+                </div>
+              )}
+            </div>
             {isActive && <span className="flex h-2 w-2 rounded-full bg-white animate-ping"></span>}
           </div>
           
