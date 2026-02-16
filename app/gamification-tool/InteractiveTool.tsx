@@ -1,299 +1,233 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { ToolConfig } from "@/lib/analysis";
+import { useState } from 'react';
+import { ToolConfig } from '@/lib/analysis';
+import StepCounterComponent from '@/components/StepCounter';
 
-export default function InteractiveTool({ 
-  config, 
-  mode 
-}: { 
-  config: ToolConfig, 
-  mode: string 
-}) {
-  const [isActive, setIsActive] = useState(false);
-  const [showEvaluation, setShowEvaluation] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+interface InteractiveToolProps {
+  config: ToolConfig;
+  mode: string;
+}
+
+export default function InteractiveTool({ config, mode }: InteractiveToolProps) {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [stepCounterActive, setStepCounterActive] = useState(false);
   
-  // Fitness Stats
-  const [points, setPoints] = useState(2450);
-  const [steps, setSteps] = useState(0); 
-  const [calories, setCalories] = useState(0);
-  const [sensorActive, setSensorActive] = useState(false);
-  
-  const isNaija = config.theme === 'nigerian-vibrant';
-  const isWestern = config.theme === 'western-modern';
-  const isPanAfrican = config.theme === 'pan-african';
-
-  // Real-Time Pedometer Logic (Actual Movement)
-  useEffect(() => {
-    let lastStepTime = 0;
-    const stepCooldown = 300; // ms between steps to avoid double counting
-    const sensitivity = 10; // Lower = more sensitive
-
-    const handleMotion = (event: DeviceMotionEvent) => {
-      // Signal that the sensor is at least firing
-      if (!sensorActive) setSensorActive(true);
-
-      const acc = event.acceleration || event.accelerationIncludingGravity;
-      if (!acc) return;
-
-      const x = acc.x || 0;
-      const y = acc.y || 0;
-      const z = acc.z || 0;
-      
-      const totalAcc = Math.sqrt(x*x + y*y + z*z);
-      
-      // Look for a significant 'spike' in movement
-      const now = Date.now();
-      if (totalAcc > sensitivity && (now - lastStepTime) > stepCooldown) {
-        setSteps(prev => {
-          const next = prev + 1;
-          setCalories(Math.round(next * 0.04));
-          if (next % 10 === 0) setPoints(p => p + 1);
-          return next;
-        });
-        lastStepTime = now;
-      }
-    };
-
-    if (isActive) {
-      window.addEventListener("devicemotion", handleMotion);
-    }
-
-    return () => {
-      window.removeEventListener("devicemotion", handleMotion);
-      setSensorActive(false);
-    };
-  }, [isActive, sensorActive]);
-
-  const toggleSession = async () => {
-    if (isActive) {
-      setIsActive(false);
-      setShowEvaluation(true);
-    } else {
-      // iOS Sensor Permission Request
-      if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
-        try {
-          const permission = await (DeviceMotionEvent as any).requestPermission();
-          if (permission !== 'granted') {
-            alert("Motion permission is required to track actual steps!");
-            return;
-          }
-        } catch (error) {
-          console.error("Permission error:", error);
-        }
-      }
-      setIsActive(true);
-      setIsPlaying(true);
-    }
+  const handleStepUpdate = (steps: number, distance: number, calories: number) => {
+    // This could be used to update gamification elements based on steps
+    console.log(`Steps: ${steps}, Distance: ${distance}m, Calories: ${calories}`);
   };
 
-  if (showEvaluation) {
-    return (
-      <div className={`min-h-[100dvh] w-full ${isNaija ? 'bg-[#fdf8f4]' : isWestern ? 'bg-blue-50' : 'bg-slate-50'} p-6 flex flex-col items-center justify-center font-sans`}>
-        <div className="max-w-md w-full bg-white p-8 rounded-[2.5rem] shadow-xl border border-black/5 animate-in zoom-in-95 duration-300">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            </div>
-            <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight leading-none">Evaluation Protocol</h2>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-3">Objective (iv): Impact Analysis</p>
-          </div>
-
-          <div className="space-y-6">
-            <div className="bg-gray-50 p-5 rounded-2xl flex justify-between items-center border border-gray-100 shadow-inner">
-               <div className="text-center">
-                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Real steps</span>
-                 <span className="text-2xl font-black text-indigo-600 leading-none">{steps}</span>
-               </div>
-               <div className="w-px h-8 bg-gray-200"></div>
-               <div className="text-center">
-                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Active Burn</span>
-                 <span className="text-2xl font-black text-orange-500 leading-none">{calories}</span>
-               </div>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-sm font-bold text-gray-700 leading-tight text-center px-4">Based on this session, rate the motivational impact of the {config.culturalContext.locationSignal} tool:</p>
-              <div className="flex justify-between gap-2 px-2">
-                {[1, 2, 3, 4, 5].map(v => (
-                  <button key={v} className="flex-1 aspect-square rounded-xl bg-gray-50 border border-gray-100 text-gray-400 font-black hover:bg-indigo-600 hover:text-white transition-all active:scale-90">
-                    {v}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-between text-[8px] font-black text-gray-400 uppercase px-2">
-                 <span>Weak Signal</span>
-                 <span>Peak Motivation</span>
-              </div>
-            </div>
-
-            <Link href="/" className="block w-full py-5 bg-indigo-600 text-white text-center rounded-[2rem] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
-              Submit Intelligence
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className={`min-h-[100dvh] w-full ${isNaija ? 'bg-[#fdf8f4]' : isWestern ? 'bg-blue-50' : 'bg-slate-50'} p-3 sm:p-6 lg:p-12 font-sans overflow-x-hidden flex flex-col items-center justify-center`}>
-      <div className="max-w-md w-full mx-auto space-y-5 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        
-        {/* Top Header */}
-        <header className="flex justify-between items-center bg-white p-3 sm:p-4 rounded-[1.5rem] sm:rounded-[2rem] shadow-sm border border-black/5">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl ${isNaija ? 'bg-green-600' : isWestern ? 'bg-blue-600' : isPanAfrican ? 'bg-orange-600' : 'bg-indigo-600'} flex items-center justify-center text-white font-black shadow-lg text-sm sm:text-base flex-shrink-0`}>
-              {isNaija ? '🇳🇬' : isWestern ? '🇺🇸' : isPanAfrican ? '🌍' : '🌐'}
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm sm:text-lg font-black tracking-tight uppercase leading-none truncate">
-                {config.culturalContext.locationSignal} Tool
-              </h1>
-              <p className="text-[7px] sm:text-[9px] font-black text-indigo-600 uppercase tracking-widest mt-1">Research Obj. III</p>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 p-4 sm:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-white/20">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 sm:p-10 text-center">
+            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-[0.2em] mb-2">Cross-Cultural Tool</h1>
+            <p className="text-xs sm:text-sm font-bold opacity-80 uppercase tracking-widest">{mode}</p>
           </div>
-          <Link href="/" className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          </Link>
-        </header>
 
-        <div className="p-2.5 sm:p-4 bg-indigo-600 rounded-xl sm:rounded-2xl text-white text-[8px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-between shadow-lg shadow-indigo-200">
-           <span className="truncate mr-2">Protocol: {mode}</span>
-           <div className="flex items-center gap-2">
-              <span className="opacity-60 text-[7px] uppercase tracking-tighter">{config.totalParticipants} ACTIVE SIGNALS</span>
-              <span className="flex h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0"></span>
-           </div>
-        </div>
+          <div className="p-6 sm:p-8">
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-gray-100 mb-8">
+              {['dashboard', 'steps', 'leaderboard', 'rewards'].map((tab) => (
+                <button
+                  key={tab}
+                  className={`px-4 py-3 font-black text-sm capitalize ${
+                    activeTab === tab
+                      ? 'text-indigo-600 border-b-2 border-indigo-600'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
 
-        {/* Core Tracker Section */}
-        <div className={`p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] text-white shadow-xl transition-all duration-1000 ${isActive ? (isNaija ? 'bg-green-600' : isWestern ? 'bg-blue-600' : 'bg-indigo-600') : (isNaija ? 'bg-gradient-to-br from-green-600 to-indigo-950' : isWestern ? 'bg-gradient-to-br from-blue-600 to-indigo-900' : 'bg-gradient-to-br from-indigo-600 to-purple-700')}`}>
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] opacity-70">
-                {isActive ? 'Tracking Body Motion' : 'Sensor Offline'}
-              </span>
-              {isActive && (
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${sensorActive ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-                  <span className="text-[7px] font-black uppercase tracking-widest opacity-50">
-                    {sensorActive ? 'Sensor Connected' : 'Waiting for Signal...'}
-                  </span>
+            {/* Tab Content */}
+            <div className="min-h-[400px]">
+              {activeTab === 'dashboard' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-indigo-50 rounded-2xl p-6 text-center">
+                      <h3 className="font-black text-indigo-700 mb-2">Activity Level</h3>
+                      <p className="text-3xl font-black text-indigo-600">
+                        {config.primaryFocus}
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 rounded-2xl p-6 text-center">
+                      <h3 className="font-black text-purple-700 mb-2">Theme</h3>
+                      <p className="text-3xl font-black text-purple-600 capitalize">
+                        {config.theme.replace('-', ' ')}
+                      </p>
+                    </div>
+                    <div className="bg-green-50 rounded-2xl p-6 text-center">
+                      <h3 className="font-black text-green-700 mb-2">Participants</h3>
+                      <p className="text-3xl font-black text-green-600">
+                        {config.totalParticipants}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-2xl p-6">
+                    <h3 className="font-black text-gray-800 mb-4">Cultural Elements</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Leaderboard Name</p>
+                        <p className="font-bold text-gray-800">{config.culturalContext.leaderboardName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Reward Name</p>
+                        <p className="font-bold text-gray-800">{config.culturalContext.rewardName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Music Genre</p>
+                        <p className="font-bold text-gray-800">{config.culturalContext.musicGenre}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Location Signal</p>
+                        <p className="font-bold text-gray-800">{config.culturalContext.locationSignal}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'steps' && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-black text-gray-800">Step Tracking</h2>
+                    <button
+                      onClick={() => setStepCounterActive(!stepCounterActive)}
+                      className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest text-sm ${
+                        stepCounterActive
+                          ? 'bg-red-500 text-white'
+                          : 'bg-indigo-600 text-white'
+                      }`}
+                    >
+                      {stepCounterActive ? 'Stop' : 'Start'} Tracking
+                    </button>
+                  </div>
+                  
+                  <StepCounterComponent 
+                    isActive={stepCounterActive} 
+                    onStepUpdate={handleStepUpdate} 
+                  />
+                  
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
+                    <h3 className="font-black text-yellow-800 mb-2">Tip</h3>
+                    <p className="text-yellow-700">
+                      Keep your phone in your pocket or bag while walking for accurate step counting. 
+                      The app uses your device's motion sensors to detect steps.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'leaderboard' && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-black text-gray-800">Leaderboard</h2>
+                    <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-black uppercase tracking-widest">
+                      {config.culturalContext.leaderboardName}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {config.showLeaderboard ? (
+                      <>
+                        <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-black mr-3">1</div>
+                            <div>
+                              <p className="font-bold text-gray-800">You</p>
+                              <p className="text-xs text-gray-500">Local Champion</p>
+                            </div>
+                          </div>
+                          <p className="font-black text-indigo-600">12,450 steps</p>
+                        </div>
+                        
+                        {[2, 3, 4, 5].map((rank) => (
+                          <div key={rank} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-black mr-3">{rank}</div>
+                              <div>
+                                <p className="font-bold text-gray-800">User {rank}</p>
+                                <p className="text-xs text-gray-500">Local Runner</p>
+                              </div>
+                            </div>
+                            <p className="font-black text-gray-600">{10000 - rank * 1000} steps</p>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="text-center py-10 bg-gray-50 rounded-2xl">
+                        <p className="text-gray-500 font-medium">Leaderboard is not enabled in your personalized protocol</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'rewards' && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-black text-gray-800">Rewards</h2>
+                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-black uppercase tracking-widest">
+                      {config.culturalContext.rewardName}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {config.showRewards ? (
+                      <>
+                        <div className="p-5 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl border border-yellow-200">
+                          <div className="text-yellow-500 text-3xl mb-3">🏆</div>
+                          <h3 className="font-black text-gray-800 mb-1">Daily Streak</h3>
+                          <p className="text-sm text-gray-600">Keep walking for 7 days straight</p>
+                          <div className="mt-3 w-full bg-yellow-200 rounded-full h-2">
+                            <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '60%' }}></div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl border border-blue-200">
+                          <div className="text-blue-500 text-3xl mb-3">🏅</div>
+                          <h3 className="font-black text-gray-800 mb-1">10k Steps</h3>
+                          <p className="text-sm text-gray-600">Reach 10,000 steps in a day</p>
+                          <div className="mt-3 w-full bg-blue-200 rounded-full h-2">
+                            <div className="bg-blue-500 h-2 rounded-full" style={{ width: '35%' }}></div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-5 bg-gradient-to-br from-green-50 to-green-100 rounded-2xl border border-green-200">
+                          <div className="text-green-500 text-3xl mb-3">🎯</div>
+                          <h3 className="font-black text-gray-800 mb-1">Weekly Goal</h3>
+                          <p className="text-sm text-gray-600">Walk 50,000 steps this week</p>
+                          <div className="mt-3 w-full bg-green-200 rounded-full h-2">
+                            <div className="bg-green-500 h-2 rounded-full" style={{ width: '25%' }}></div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-5 bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl border border-purple-200">
+                          <div className="text-purple-500 text-3xl mb-3">🌟</div>
+                          <h3 className="font-black text-gray-800 mb-1">Explorer Badge</h3>
+                          <p className="text-sm text-gray-600">Visit 10 new locations</p>
+                          <div className="mt-3 w-full bg-purple-200 rounded-full h-2">
+                            <div className="bg-purple-500 h-2 rounded-full" style={{ width: '10%' }}></div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="col-span-2 text-center py-10 bg-gray-50 rounded-2xl">
+                        <p className="text-gray-500 font-medium">Rewards are not enabled in your personalized protocol</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
-            {isActive && <span className="flex h-2 w-2 rounded-full bg-white animate-ping"></span>}
           </div>
-          
-          <div className="flex items-end gap-2 mb-6">
-            <h2 className="text-5xl sm:text-6xl font-black leading-none tracking-tighter">
-              {steps}
-            </h2>
-            <span className="text-sm sm:text-base font-bold opacity-60 mb-2 uppercase tracking-widest">Steps</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-             <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
-                <span className="block text-[8px] font-black uppercase tracking-widest opacity-60">Energy Burn</span>
-                <span className="text-lg font-black">{calories} <span className="text-[10px]">kcal</span></span>
-             </div>
-             <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
-                <span className="block text-[8px] font-black uppercase tracking-widest opacity-60">Consensus Pts</span>
-                <span className="text-lg font-black">{points} <span className="text-[10px]">pts</span></span>
-             </div>
-          </div>
-        </div>
-
-        {/* Dynamic Music Section */}
-        <div className="bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-sm border border-black/5 flex items-center gap-3 sm:gap-4 group hover:border-indigo-200 transition-all">
-          <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl ${isNaija ? 'bg-orange-100 text-orange-600' : isWestern ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'} flex items-center justify-center shadow-inner flex-shrink-0`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`${isPlaying ? 'animate-bounce' : ''} sm:w-7 sm:h-7`}><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Audio Driver</h3>
-            <p className="font-black text-gray-900 text-xs sm:text-base truncate leading-tight mt-0.5">{config.culturalContext.musicGenre}</p>
-          </div>
-          <button 
-            onClick={() => setIsPlaying(!isPlaying)}
-            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white shadow-lg active:scale-90 transition-all flex-shrink-0 ${isPlaying ? 'bg-red-500' : 'bg-indigo-600'}`}
-          >
-            {isPlaying ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="sm:w-[18px] sm:h-[18px]"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="sm:w-[18px] sm:h-[18px]"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            )}
-          </button>
-        </div>
-
-        {/* Dynamic Leaderboard */}
-        {config.showLeaderboard && (
-          <div className="bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-sm border border-black/5">
-            <div className="flex justify-between items-center mb-5 sm:mb-6">
-              <h3 className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">{config.culturalContext.leaderboardName}</h3>
-              <span className="text-[7px] sm:text-[9px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-1.5 py-0.5 rounded-md uppercase">Voted by {config.leaderboardVotes}%</span>
-            </div>
-            <div className="space-y-2.5 sm:space-y-3">
-              {[
-                { name: 'Target', score: '8.5k', img: '🎯' },
-                { name: 'Session', score: `${(steps/1000).toFixed(1)}k`, img: '👤', active: true }
-              ].map((user, i) => (
-                <div key={i} className={`flex items-center gap-2.5 sm:gap-3 p-3 sm:p-4 rounded-xl sm:rounded-2xl border transition-all ${user.active ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'bg-gray-50/50 border-gray-100 opacity-60'}`}>
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white flex items-center justify-center text-xs sm:text-sm shadow-sm border border-gray-100 flex-shrink-0">{user.img}</div>
-                  <span className="flex-1 font-black text-[11px] sm:text-sm text-gray-700 truncate uppercase">{user.name}</span>
-                  <span className="font-black text-[7px] sm:text-[9px] text-indigo-600 uppercase flex-shrink-0 tracking-tighter">{user.score}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Dynamic Rewards */}
-        {config.showRewards && (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <div className={`p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.5rem] border-2 border-dashed ${isNaija ? 'border-green-200 bg-green-50/50' : isWestern ? 'border-blue-200 bg-blue-50/50' : 'border-indigo-100 bg-indigo-50/50'} flex flex-col items-center justify-center text-center`}>
-              <span className="text-lg sm:text-2xl mb-1.5 sm:mb-2">{isNaija ? '👑' : '🏆'}</span>
-              <span className="text-[7px] sm:text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Consensus Prize</span>
-              <span className="font-black text-gray-900 text-[10px] sm:text-sm leading-tight mt-1.5 uppercase">{config.culturalContext.rewardName}</span>
-            </div>
-            <div className="p-4 sm:p-6 bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-sm border border-black/5 flex flex-col items-center justify-center text-center">
-              <span className="text-xl sm:text-2xl mb-1.5 sm:mb-2">⚡</span>
-              <span className="text-[7px] sm:text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">REALTIME</span>
-              <span className="font-black text-indigo-600 text-sm sm:text-lg mt-1.5">{points.toLocaleString()}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Active Toggle */}
-        <button 
-          onClick={toggleSession}
-          className={`w-full py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-white shadow-2xl active:scale-95 transition-all text-xs sm:text-base flex items-center justify-center gap-3 ${
-            isActive 
-              ? 'bg-red-500 shadow-red-200' 
-              : (isNaija ? 'bg-green-600 shadow-green-200' : isWestern ? 'bg-blue-600 shadow-blue-200' : 'bg-indigo-600 shadow-indigo-200')
-          }`}
-        >
-          {isActive ? (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
-              Finalize & Evaluate
-            </>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              Engage Local Protocol
-            </>
-          )}
-        </button>
-
-        <div className="text-center space-y-1.5 pb-6 sm:pb-12 border-t border-gray-100 pt-6">
-           <p className="text-[7px] sm:text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed px-4">
-             Adaptive Protocol: {config.culturalContext.locationSignal} — v1.0.0
-           </p>
-           <p className="text-[6px] sm:text-[8px] text-gray-300 font-medium max-w-[200px] sm:max-w-xs mx-auto leading-relaxed px-4 italic leading-tight">
-             Executing design findings from {config.totalParticipants} participants to test multicultural health adoption.
-           </p>
         </div>
       </div>
     </div>

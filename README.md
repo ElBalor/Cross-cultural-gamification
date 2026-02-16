@@ -17,6 +17,8 @@ A Next.js survey application for collecting research data on cross-cultural gami
 - ✅ **Server Actions**: Secure form submission using Next.js Server Actions
 - ✅ **Responsive Design**: Beautiful UI with Tailwind CSS
 - ✅ **Form Validation**: Client-side validation with error messages
+- ✅ **Step Counter**: Built-in step tracking using device motion sensors
+- ✅ **Gamification Tool**: Personalized fitness tool with cultural adaptations
 
 ## Tech Stack
 
@@ -93,12 +95,19 @@ Tables are created automatically when you first run the app, or you can manually
 │   ├── layout.tsx          # Root layout
 │   ├── page.tsx            # Home page
 │   ├── globals.css         # Global styles
+│   ├── step-counter/       # Step counter page
+│   │   └── page.tsx        # Step counter implementation
 │   ├── survey/
 │   │   ├── page.tsx        # Survey form page
 │   │   └── success/        # Survey success page
-│   └── interview/
-│       ├── page.tsx        # Interview questions page
-│       └── success/        # Interview success page
+│   ├── interview/
+│   │   ├── page.tsx        # Interview questions page
+│   │   └── success/        # Interview success page
+│   └── gamification-tool/
+│       ├── page.tsx        # Gamification tool home
+│       └── InteractiveTool.tsx # Interactive tool component
+├── components/
+│   └── StepCounter.tsx     # Reusable step counter component
 ├── lib/
 │   └── db.ts               # Database functions
 ├── types/
