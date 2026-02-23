@@ -18,7 +18,9 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
   
   const stepDistance = 0.762; // Average step distance in meters (2.5 ft)
   const caloriesPerStep = 0.04; // Approximate calories burned per step
-  const stepThreshold = 15; // Acceleration threshold to detect a step
+  const stepThreshold = 8; // Acceleration threshold to detect a step (lowered from 15 for better sensitivity)
+  const minAcceleration = 9.5; // Minimum m/s² to consider as movement
+  const maxAcceleration = 12.0; // Maximum m/s² for step detection
   
   const lastStepTime = useRef<number>(0);
   const mounted = useRef(true);
@@ -28,13 +30,17 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
   // Check if device supports motion sensors
   useEffect(() => {
     const checkSensorSupport = () => {
+      console.log('Checking sensor support...');
       if (typeof DeviceMotionEvent !== 'undefined' && typeof (DeviceMotionEvent as any).requestPermission === 'function') {
         // iOS 13+ devices require permission
+        console.log('iOS device detected - permission required');
         setIsSupported(true);
       } else if ('ondevicemotion' in window) {
         // Non-iOS devices
+        console.log('Android/Other device detected');
         setIsSupported(true);
       } else {
+        console.log('Device does not support motion sensors');
         setIsSupported(false);
       }
     };
@@ -71,6 +77,9 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
   useEffect(() => {
     if (!isActive || !isSupported) return;
 
+    let stepCandidateCount = 0;
+    let lastPeakTime = 0;
+
     const handleMotion = (event: DeviceMotionEvent) => {
       if (!mounted.current) return;
 
@@ -84,12 +93,24 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
       
       const magnitude = Math.sqrt(accX * accX + accY * accY + accZ * accZ);
       
+      // Debug logging (remove in production)
+      // console.log(`Acceleration: X=${accX.toFixed(2)}, Y=${accY.toFixed(2)}, Z=${accZ.toFixed(2)}, Magnitude=${magnitude.toFixed(2)}`);
+      
       // Detect step based on acceleration magnitude and timing
       const currentTime = Date.now();
       const timeSinceLastStep = currentTime - lastStepTime.current;
       
-      // Only count a step if acceleration exceeds threshold and enough time has passed
-      if (magnitude > stepThreshold && timeSinceLastStep > 300) { // 300ms minimum between steps
+      // Better step detection: check if magnitude is in walking range
+      // Gravity is ~9.8 m/s², walking creates peaks between 9.5-12 m/s²
+      const isWalkingRange = magnitude >= minAcceleration && magnitude <= maxAcceleration;
+      const isPeakDetected = magnitude > stepThreshold;
+      
+      // Only count a step if:
+      // 1. In walking acceleration range
+      // 2. Enough time passed since last step (350ms = ~170 steps/min max)
+      // 3. Detecting a peak in the acceleration pattern
+      if (isWalkingRange && isPeakDetected && timeSinceLastStep > 350) {
+        console.log(`Step detected! Magnitude: ${magnitude.toFixed(2)}, Time since last: ${timeSinceLastStep}ms`);
         setSteps(prev => {
           const newSteps = prev + 1;
           const newDistance = newSteps * stepDistance;
