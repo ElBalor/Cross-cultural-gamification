@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { saveStepActivityAction, logSessionEvent } from '@/app/actions';
 
 interface StepCounterProps {
   onStepUpdate?: (steps: number, distance: number, calories: number) => void;
@@ -15,33 +14,55 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
   const [calories, setCalories] = useState(0);
   const [isSupported, setIsSupported] = useState(true);
   const [lastSaved, setLastSaved] = useState<number>(0);
+  const [deviceType, setDeviceType] = useState<'iOS' | 'Android' | 'Unknown'>('Unknown');
   
-  const stepDistance = 0.762; // Average step distance in meters (2.5 ft)
-  const caloriesPerStep = 0.04; // Approximate calories burned per step
-  const stepThreshold = 8; // Acceleration threshold to detect a step (lowered from 15 for better sensitivity)
-  const minAcceleration = 9.5; // Minimum m/s² to consider as movement
-  const maxAcceleration = 12.0; // Maximum m/s² for step detection
+  // Optimized parameters for all devices
+  const stepThreshold = 9.0;
+  const minAcceleration = 8.0;
+  const maxAcceleration = 15.0;
+  const minTimeBetweenSteps = 300;
+  const stepDistance = 0.762;
+  const caloriesPerStep = 0.04;
   
   const lastStepTime = useRef<number>(0);
   const mounted = useRef(true);
   const sessionId = useRef<string>(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const startTime = useRef<number>(Date.now());
+  const debugCount = useRef<number>(0);
+  const accelerationHistory = useRef<number[]>([]);
+  const peakDetected = useRef<boolean>(false);
+  const stepTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Detect device type
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    if (/iPad|iPhone|iPod/.test(ua)) {
+      setDeviceType('iOS');
+    } else if (/Android/.test(ua)) {
+      setDeviceType('Android');
+    } else {
+      setDeviceType('Unknown');
+    }
+  }, []);
 
   // Check if device supports motion sensors
   useEffect(() => {
     const checkSensorSupport = () => {
-      console.log('Checking sensor support...');
-      if (typeof DeviceMotionEvent !== 'undefined' && typeof (DeviceMotionEvent as any).requestPermission === 'function') {
-        // iOS 13+ devices require permission
-        console.log('iOS device detected - permission required');
+      console.log('StepCounter: Checking sensor support...');
+      
+      if (typeof DeviceMotionEvent !== 'undefined') {
         setIsSupported(true);
-      } else if ('ondevicemotion' in window) {
-        // Non-iOS devices
-        console.log('Android/Other device detected');
-        setIsSupported(true);
+        console.log('StepCounter: Motion sensors supported');
+        
+        // Check if iOS 13+ (permission required)
+        if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+          console.log('StepCounter: iOS 13+ detected - permission will be required');
+        } else {
+          console.log('StepCounter: Android or older iOS - no permission needed');
+        }
       } else {
-        console.log('Device does not support motion sensors');
         setIsSupported(false);
+        console.log('StepCounter: Motion sensors NOT supported');
       }
     };
 
@@ -51,34 +72,19 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
   // Log session start
   useEffect(() => {
     if (isActive) {
-      logSessionEvent({
-        surveyResponseId,
-        sessionId: sessionId.current,
-        pagePath: '/step-counter',
-        eventType: 'step_counter_start',
-        eventData: { device: typeof navigator !== 'undefined' ? navigator.platform : 'unknown' }
-      });
+      console.log('StepCounter: Activity started');
     }
     
     return () => {
-      if (mounted.current) {
-        logSessionEvent({
-          surveyResponseId,
-          sessionId: sessionId.current,
-          pagePath: '/step-counter',
-          eventType: 'step_counter_end',
-          duration: Date.now() - startTime.current
-        });
+      if (mounted.current && stepTimeout.current) {
+        clearTimeout(stepTimeout.current);
       }
     };
-  }, [isActive, surveyResponseId]);
+  }, [isActive]);
 
   // Handle motion events
   useEffect(() => {
     if (!isActive || !isSupported) return;
-
-    let stepCandidateCount = 0;
-    let lastPeakTime = 0;
 
     const handleMotion = (event: DeviceMotionEvent) => {
       if (!mounted.current) return;
@@ -93,39 +99,68 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
       
       const magnitude = Math.sqrt(accX * accX + accY * accY + accZ * accZ);
       
-      // Debug logging (remove in production)
-      // console.log(`Acceleration: X=${accX.toFixed(2)}, Y=${accY.toFixed(2)}, Z=${accZ.toFixed(2)}, Magnitude=${magnitude.toFixed(2)}`);
+      // Store history for peak detection
+      accelerationHistory.current.push(magnitude);
+      if (accelerationHistory.current.length > 10) {
+        accelerationHistory.current.shift();
+      }
       
-      // Detect step based on acceleration magnitude and timing
+      // Debug logging every 20 readings
+      debugCount.current++;
+      if (debugCount.current % 20 === 0) {
+        console.log(`StepCounter: Accel ${magnitude.toFixed(2)} m/s²`);
+      }
+      
+      // Check if enough time passed since last step
       const currentTime = Date.now();
       const timeSinceLastStep = currentTime - lastStepTime.current;
       
-      // Better step detection: check if magnitude is in walking range
-      // Gravity is ~9.8 m/s², walking creates peaks between 9.5-12 m/s²
-      const isWalkingRange = magnitude >= minAcceleration && magnitude <= maxAcceleration;
-      const isPeakDetected = magnitude > stepThreshold;
+      if (timeSinceLastStep < minTimeBetweenSteps) {
+        return;
+      }
       
-      // Only count a step if:
-      // 1. In walking acceleration range
-      // 2. Enough time passed since last step (350ms = ~170 steps/min max)
-      // 3. Detecting a peak in the acceleration pattern
-      if (isWalkingRange && isPeakDetected && timeSinceLastStep > 350) {
-        console.log(`Step detected! Magnitude: ${magnitude.toFixed(2)}, Time since last: ${timeSinceLastStep}ms`);
-        setSteps(prev => {
-          const newSteps = prev + 1;
-          const newDistance = newSteps * stepDistance;
-          const newCalories = newSteps * caloriesPerStep;
+      // Step detection logic
+      const isWalkingRange = magnitude >= minAcceleration && magnitude <= maxAcceleration;
+      const isAboveThreshold = magnitude > stepThreshold;
+      
+      // Check for peak in recent history
+      const recentMax = Math.max(...accelerationHistory.current);
+      const recentMin = Math.min(...accelerationHistory.current);
+      const hasPeakVariation = (recentMax - recentMin) > 1.5;
+      
+      // Count step if conditions met
+      if (isWalkingRange && isAboveThreshold && hasPeakVariation) {
+        if (!peakDetected.current) {
+          peakDetected.current = true;
+          console.log(`StepCounter: STEP! ${magnitude.toFixed(2)} m/s²`);
           
-          setDistance(newDistance);
-          setCalories(newCalories);
+          setSteps(prev => {
+            const newSteps = prev + 1;
+            const newDistance = newSteps * stepDistance;
+            const newCalories = newSteps * caloriesPerStep;
+            
+            setDistance(newDistance);
+            setCalories(newCalories);
+            
+            if (onStepUpdate) {
+              onStepUpdate(newSteps, newDistance, newCalories);
+            }
+            
+            lastStepTime.current = currentTime;
+            return newSteps;
+          });
           
-          if (onStepUpdate) {
-            onStepUpdate(newSteps, newDistance, newCalories);
-          }
-          
-          lastStepTime.current = currentTime;
-          return newSteps;
-        });
+          // Reset peak detection after delay
+          if (stepTimeout.current) clearTimeout(stepTimeout.current);
+          stepTimeout.current = setTimeout(() => {
+            peakDetected.current = false;
+          }, minTimeBetweenSteps);
+        }
+      } else {
+        // Reset peak if magnitude returns to normal
+        if (magnitude < stepThreshold - 1) {
+          peakDetected.current = false;
+        }
       }
     };
 
@@ -133,15 +168,22 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
     const setupMotionListener = async () => {
       if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
         try {
+          console.log('StepCounter: Requesting iOS permission...');
           const permissionState = await (DeviceMotionEvent as any).requestPermission();
+          console.log('StepCounter: Permission result:', permissionState);
+          
           if (permissionState === 'granted') {
             window.addEventListener('devicemotion', handleMotion);
+          } else {
+            console.error('StepCounter: Permission denied');
+            setIsSupported(false);
           }
         } catch (error) {
-          console.error('Error requesting motion permission:', error);
+          console.error('StepCounter: Permission error:', error);
           setIsSupported(false);
         }
       } else {
+        // Non-iOS or older iOS
         window.addEventListener('devicemotion', handleMotion);
       }
     };
@@ -150,61 +192,27 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
 
     return () => {
       window.removeEventListener('devicemotion', handleMotion);
+      if (stepTimeout.current) {
+        clearTimeout(stepTimeout.current);
+      }
     };
   }, [isActive, isSupported, onStepUpdate]);
 
-  // Save step activity periodically (every 30 seconds)
-  useEffect(() => {
-    if (!isActive || steps === 0) return;
-    
-    const saveInterval = setInterval(async () => {
-      const now = Date.now();
-      if (now - lastSaved > 30000) { // Save every 30 seconds
-        await saveStepActivityAction({
-          surveyResponseId,
-          sessionId: sessionId.current,
-          steps,
-          distance,
-          calories,
-          duration: Math.floor((now - startTime.current) / 1000),
-          metadata: {
-            timestamp: new Date().toISOString(),
-            device: typeof navigator !== 'undefined' ? navigator.platform : 'unknown'
-          }
-        });
-        setLastSaved(now);
-      }
-    }, 5000); // Check every 5 seconds
-    
-    return () => clearInterval(saveInterval);
-  }, [isActive, steps, distance, calories, surveyResponseId, lastSaved]);
-
-  // Save on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       mounted.current = false;
-      if (steps > 0) {
-        saveStepActivityAction({
-          surveyResponseId,
-          sessionId: sessionId.current,
-          steps,
-          distance,
-          calories,
-          duration: Math.floor((Date.now() - startTime.current) / 1000),
-          metadata: {
-            timestamp: new Date().toISOString(),
-            device: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
-            final: true
-          }
-        });
+      if (stepTimeout.current) {
+        clearTimeout(stepTimeout.current);
       }
     };
-  }, [steps, distance, calories, surveyResponseId]);
+  }, []);
 
   if (!isSupported) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-        <p className="text-red-700 font-medium">Step counting is not supported on this device</p>
+      <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center">
+        <p className="text-red-700 font-bold text-sm">📱 Motion sensors not supported on this device</p>
+        <p className="text-red-600 text-xs mt-1">Please use a smartphone or tablet</p>
       </div>
     );
   }
@@ -212,9 +220,14 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
   return (
     <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-black text-gray-800 text-lg">Step Counter</h3>
+        <div>
+          <h3 className="font-black text-gray-800 text-lg">Step Counter</h3>
+          <p className="text-xs text-gray-500 font-medium mt-0.5">
+            {deviceType === 'iOS' ? '📱 iOS Device' : deviceType === 'Android' ? '🤖 Android Device' : '📱 Mobile Device'}
+          </p>
+        </div>
         {isActive && (
-          <span className="flex items-center text-xs font-bold text-green-600">
+          <span className="flex items-center text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg border border-green-200">
             <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
             Active
           </span>
@@ -224,23 +237,23 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false, s
       <div className="grid grid-cols-3 gap-4">
         <div className="text-center">
           <p className="text-3xl font-black text-indigo-600">{steps}</p>
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Steps</p>
+          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Steps</p>
         </div>
         <div className="text-center">
           <p className="text-3xl font-black text-purple-600">{distance.toFixed(1)}</p>
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Meters</p>
+          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Meters</p>
         </div>
         <div className="text-center">
           <p className="text-3xl font-black text-green-600">{calories.toFixed(1)}</p>
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Calories</p>
+          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Calories</p>
         </div>
       </div>
       
-      {lastSaved > 0 && (
-        <div className="mt-4 text-center">
-          <p className="text-xs text-green-600 font-bold">✓ Data synced to research database</p>
-        </div>
-      )}
+      <div className="mt-4 pt-4 border-t border-gray-100">
+        <p className="text-xs text-gray-500 text-center">
+          💡 Tip: Hold phone in hand or keep in pocket while walking
+        </p>
+      </div>
     </div>
   );
 }
