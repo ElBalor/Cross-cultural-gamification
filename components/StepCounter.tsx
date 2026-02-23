@@ -1,17 +1,20 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { saveStepActivityAction, logSessionEvent } from '@/app/actions';
 
 interface StepCounterProps {
   onStepUpdate?: (steps: number, distance: number, calories: number) => void;
   isActive?: boolean;
+  surveyResponseId?: number;
 }
 
-export default function StepCounterComponent({ onStepUpdate, isActive = false }: StepCounterProps) {
+export default function StepCounterComponent({ onStepUpdate, isActive = false, surveyResponseId }: StepCounterProps) {
   const [steps, setSteps] = useState(0);
   const [distance, setDistance] = useState(0);
   const [calories, setCalories] = useState(0);
   const [isSupported, setIsSupported] = useState(true);
+  const [lastSaved, setLastSaved] = useState<number>(0);
   
   const stepDistance = 0.762; // Average step distance in meters (2.5 ft)
   const caloriesPerStep = 0.04; // Approximate calories burned per step
@@ -19,6 +22,8 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false }:
   
   const lastStepTime = useRef<number>(0);
   const mounted = useRef(true);
+  const sessionId = useRef<string>(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const startTime = useRef<number>(Date.now());
 
   // Check if device supports motion sensors
   useEffect(() => {
@@ -36,6 +41,31 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false }:
 
     checkSensorSupport();
   }, []);
+
+  // Log session start
+  useEffect(() => {
+    if (isActive) {
+      logSessionEvent({
+        surveyResponseId,
+        sessionId: sessionId.current,
+        pagePath: '/step-counter',
+        eventType: 'step_counter_start',
+        eventData: { device: typeof navigator !== 'undefined' ? navigator.platform : 'unknown' }
+      });
+    }
+    
+    return () => {
+      if (mounted.current) {
+        logSessionEvent({
+          surveyResponseId,
+          sessionId: sessionId.current,
+          pagePath: '/step-counter',
+          eventType: 'step_counter_end',
+          duration: Date.now() - startTime.current
+        });
+      }
+    };
+  }, [isActive, surveyResponseId]);
 
   // Handle motion events
   useEffect(() => {
@@ -102,12 +132,53 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false }:
     };
   }, [isActive, isSupported, onStepUpdate]);
 
-  // Cleanup on unmount
+  // Save step activity periodically (every 30 seconds)
+  useEffect(() => {
+    if (!isActive || steps === 0) return;
+    
+    const saveInterval = setInterval(async () => {
+      const now = Date.now();
+      if (now - lastSaved > 30000) { // Save every 30 seconds
+        await saveStepActivityAction({
+          surveyResponseId,
+          sessionId: sessionId.current,
+          steps,
+          distance,
+          calories,
+          duration: Math.floor((now - startTime.current) / 1000),
+          metadata: {
+            timestamp: new Date().toISOString(),
+            device: typeof navigator !== 'undefined' ? navigator.platform : 'unknown'
+          }
+        });
+        setLastSaved(now);
+      }
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(saveInterval);
+  }, [isActive, steps, distance, calories, surveyResponseId, lastSaved]);
+
+  // Save on unmount
   useEffect(() => {
     return () => {
       mounted.current = false;
+      if (steps > 0) {
+        saveStepActivityAction({
+          surveyResponseId,
+          sessionId: sessionId.current,
+          steps,
+          distance,
+          calories,
+          duration: Math.floor((Date.now() - startTime.current) / 1000),
+          metadata: {
+            timestamp: new Date().toISOString(),
+            device: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
+            final: true
+          }
+        });
+      }
     };
-  }, []);
+  }, [steps, distance, calories, surveyResponseId]);
 
   if (!isSupported) {
     return (
@@ -143,6 +214,12 @@ export default function StepCounterComponent({ onStepUpdate, isActive = false }:
           <p className="text-xs text-gray-500 uppercase tracking-widest">Calories</p>
         </div>
       </div>
+      
+      {lastSaved > 0 && (
+        <div className="mt-4 text-center">
+          <p className="text-xs text-green-600 font-bold">✓ Data synced to research database</p>
+        </div>
+      )}
     </div>
   );
 }

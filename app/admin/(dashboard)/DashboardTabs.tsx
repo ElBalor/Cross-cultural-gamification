@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Chapter4Report from "./Chapter4Report";
 
 interface DashboardTabsProps {
   submissions: React.ReactNode;
@@ -8,7 +9,7 @@ interface DashboardTabsProps {
 }
 
 export default function DashboardTabs({ submissions, aiInsights }: DashboardTabsProps) {
-  const [activeTab, setActiveTab] = useState<"submissions" | "ai">("submissions");
+  const [activeTab, setActiveTab] = useState<"submissions" | "ai" | "chapter4">("submissions");
 
   return (
     <div className="space-y-6">
@@ -39,10 +40,23 @@ export default function DashboardTabs({ submissions, aiInsights }: DashboardTabs
             AI Analysis
           </div>
         </button>
+        <button
+          onClick={() => setActiveTab("chapter4")}
+          className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+            activeTab === "chapter4"
+              ? "bg-white text-green-600 shadow-md scale-100 sm:scale-105"
+              : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M12 8h4"></path><path d="M12 12h4"></path><path d="M8 8h.01"></path><path d="M8 12h.01"></path></svg>
+            Chapter 4
+          </div>
+        </button>
       </div>
 
       <div className="transition-all duration-300">
-        {activeTab === "submissions" ? submissions : aiInsights}
+        {activeTab === "submissions" ? submissions : activeTab === "ai" ? aiInsights : <Chapter4Report />}
       </div>
     </div>
   );

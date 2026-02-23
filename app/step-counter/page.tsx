@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 
 declare global {
   interface Navigator {
@@ -124,13 +123,11 @@ export default function StepCounter() {
 
           <div className="p-6 sm:p-10">
             <div className="text-center mb-10">
-              <motion.div 
-                className="text-7xl sm:text-8xl font-black text-indigo-600 mb-4"
-                animate={{ scale: isCounting ? [1, 1.1, 1] : 1 }}
-                transition={{ repeat: isCounting ? Infinity : 0, duration: 1.5 }}
+              <div
+                className={`text-7xl sm:text-8xl font-black text-indigo-600 mb-4 ${isCounting ? 'animate-pulse' : ''}`}
               >
                 {steps}
-              </motion.div>
+              </div>
               <p className="text-gray-500 font-medium">Steps</p>
             </div>
 

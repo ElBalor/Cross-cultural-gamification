@@ -4,6 +4,9 @@ import {
   saveSurveyResponse,
   saveInterviewResponse,
   initDatabase,
+  saveStepActivity,
+  logSession,
+  logSystemMetric,
 } from "@/lib/db";
 import { mlEncoder } from "@/lib/ml-encoder";
 
@@ -131,6 +134,62 @@ export async function submitInterview(formData: FormData) {
     return {
       success: false,
       message: `Failed to submit interview responses: ${errorMessage}. Please check your database connection and try again.`,
+    };
+  }
+}
+
+export async function saveStepActivityAction(data: {
+  surveyResponseId?: number;
+  sessionId: string;
+  steps: number;
+  distance: number;
+  calories: number;
+  duration: number;
+  metadata?: any;
+}) {
+  try {
+    await initDatabase().catch(err => console.error("DB Init warning for step activity:", err));
+    
+    const startTime = Date.now();
+    const result = await saveStepActivity(data);
+    const duration = Date.now() - startTime;
+    
+    // Log performance metric
+    await logSystemMetric('step_activity_save_duration_ms', duration);
+    
+    return {
+      success: true,
+      id: result.id,
+    };
+  } catch (error) {
+    console.error("Error saving step activity:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function logSessionEvent(data: {
+  surveyResponseId?: number;
+  sessionId: string;
+  pagePath: string;
+  eventType: string;
+  eventData?: any;
+  duration?: number;
+}) {
+  try {
+    await logSession({
+      ...data,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error logging session event:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }
