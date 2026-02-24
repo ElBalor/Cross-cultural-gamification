@@ -7,6 +7,7 @@ import {
   saveStepActivity,
   logSession,
   logSystemMetric,
+  saveAppRating,
 } from "@/lib/db";
 import { mlEncoder } from "@/lib/ml-encoder";
 
@@ -187,6 +188,52 @@ export async function logSessionEvent(data: {
     return { success: true };
   } catch (error) {
     console.error("Error logging session event:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function submitAppRating(data: {
+  overallRating: number;
+  easeOfUseRating?: number;
+  featuresRating?: number;
+  culturalRelevanceRating?: number;
+  wouldRecommend?: boolean;
+  feedbackText?: string;
+  activityType?: string;
+  surveyResponseId?: number;
+}) {
+  try {
+    await initDatabase().catch(err => console.error("DB Init warning for rating:", err));
+    
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const deviceType = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
+    
+    const result = await saveAppRating({
+      surveyResponseId: data.surveyResponseId,
+      overallRating: data.overallRating,
+      easeOfUseRating: data.easeOfUseRating,
+      featuresRating: data.featuresRating,
+      culturalRelevanceRating: data.culturalRelevanceRating,
+      wouldRecommend: data.wouldRecommend,
+      feedbackText: data.feedbackText,
+      activityType: data.activityType,
+      deviceType,
+      sessionId,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        userAgent: deviceType
+      }
+    });
+    
+    return {
+      success: true,
+      id: result.id,
+    };
+  } catch (error) {
+    console.error("Error submitting app rating:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Unknown error",

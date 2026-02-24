@@ -85,6 +85,25 @@ export async function initDatabase() {
       )
     `;
 
+    // Create app_ratings table for user feedback and ratings
+    await sql`
+      CREATE TABLE IF NOT EXISTS app_ratings (
+        id SERIAL PRIMARY KEY,
+        survey_response_id INTEGER REFERENCES survey_responses(id),
+        overall_rating INTEGER CHECK (overall_rating >= 1 AND overall_rating <= 5),
+        ease_of_use_rating INTEGER CHECK (ease_of_use_rating >= 1 AND ease_of_use_rating <= 5),
+        features_rating INTEGER CHECK (features_rating >= 1 AND features_rating <= 5),
+        cultural_relevance_rating INTEGER CHECK (cultural_relevance_rating >= 1 AND cultural_relevance_rating <= 5),
+        would_recommend BOOLEAN,
+        feedback_text TEXT,
+        activity_type VARCHAR(100),
+        device_type VARCHAR(100),
+        session_id VARCHAR(255),
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
     // Create indexes (these may fail if embeddings column doesn't support GIN, so we catch errors)
     try {
       await sql`
@@ -495,6 +514,112 @@ export async function getPerformanceMetrics() {
     return result.rows;
   } catch (error) {
     console.error("Error fetching performance metrics:", error);
+    return [];
+  }
+}
+
+// ============================================
+// APP RATINGS FUNCTIONS
+// ============================================
+
+export async function saveAppRating(data: {
+  surveyResponseId?: number;
+  overallRating: number;
+  easeOfUseRating?: number;
+  featuresRating?: number;
+  culturalRelevanceRating?: number;
+  wouldRecommend?: boolean;
+  feedbackText?: string;
+  activityType?: string;
+  deviceType?: string;
+  sessionId?: string;
+  metadata?: any;
+}) {
+  try {
+    const result = await sql`
+      INSERT INTO app_ratings (
+        survey_response_id,
+        overall_rating,
+        ease_of_use_rating,
+        features_rating,
+        cultural_relevance_rating,
+        would_recommend,
+        feedback_text,
+        activity_type,
+        device_type,
+        session_id,
+        metadata
+      )
+      VALUES (
+        ${data.surveyResponseId || null},
+        ${data.overallRating},
+        ${data.easeOfUseRating || null},
+        ${data.featuresRating || null},
+        ${data.culturalRelevanceRating || null},
+        ${data.wouldRecommend || null},
+        ${data.feedbackText || null},
+        ${data.activityType || null},
+        ${data.deviceType || null},
+        ${data.sessionId || null},
+        ${data.metadata ? JSON.stringify(data.metadata) : null}
+      )
+      RETURNING id
+    `;
+    return { success: true, id: result.rows[0].id };
+  } catch (error) {
+    console.error("Error saving app rating:", error);
+    throw error;
+  }
+}
+
+export async function getAllAppRatings() {
+  try {
+    const result = await sql`
+      SELECT * FROM app_ratings
+      ORDER BY created_at DESC
+    `;
+    return result.rows;
+  } catch (error) {
+    console.error("Error fetching app ratings:", error);
+    return [];
+  }
+}
+
+export async function getAppRatingsSummary() {
+  try {
+    const result = await sql`
+      SELECT 
+        COUNT(*) as total_ratings,
+        AVG(overall_rating) as avg_overall,
+        AVG(ease_of_use_rating) as avg_ease_of_use,
+        AVG(features_rating) as avg_features,
+        AVG(cultural_relevance_rating) as avg_cultural,
+        COUNT(CASE WHEN would_recommend = true THEN 1 END) as recommend_count,
+        COUNT(CASE WHEN would_recommend = false THEN 1 END) as not_recommend_count
+      FROM app_ratings
+    `;
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error fetching ratings summary:", error);
+    return null;
+  }
+}
+
+export async function getRatingsByActivity() {
+  try {
+    const result = await sql`
+      SELECT 
+        activity_type,
+        COUNT(*) as count,
+        AVG(overall_rating) as avg_rating
+      FROM app_ratings
+      WHERE activity_type IS NOT NULL
+      GROUP BY activity_type
+      ORDER BY count DESC
+    `;
+    return result.rows;
+  } catch (error) {
+    console.error("Error fetching ratings by activity:", error);
     return [];
   }
 }

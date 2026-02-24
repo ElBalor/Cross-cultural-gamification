@@ -214,6 +214,10 @@ export default async function AdminDashboard() {
                  <span className="text-xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 leading-none">{interviews.length}</span>
                  <span className="text-[8px] sm:text-[10px] text-gray-400 font-black uppercase tracking-widest mt-2">Interviews</span>
              </div>
+             <Link href="/admin/ratings" className="flex-1 lg:flex-none bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 sm:p-5 rounded-3xl shadow-xl border border-yellow-200 flex flex-col items-center justify-center min-w-0 lg:min-w-[140px] transform transition-transform hover:scale-105">
+                 <span className="text-3xl mb-1">⭐</span>
+                 <span className="text-[8px] sm:text-[10px] text-yellow-700 font-black uppercase tracking-widest">Ratings</span>
+             </Link>
          </div>
       </div>
 
