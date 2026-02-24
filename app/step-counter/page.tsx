@@ -12,21 +12,24 @@ export default function StepCounter() {
   const [deviceType, setDeviceType] = useState<'iOS' | 'Android' | 'Desktop' | 'Unknown'>('Unknown');
   const [debugInfo, setDebugInfo] = useState('');
   const [error, setError] = useState('');
+  const [accuracyMode, setAccuracyMode] = useState<'strict' | 'normal'>('strict');
   
-  // Step detection parameters - tuned for all devices
-  const stepThreshold = 9.0; // Base threshold (m/s²)
-  const minAcceleration = 8.0; // Minimum for walking
-  const maxAcceleration = 15.0; // Maximum for walking
-  const minTimeBetweenSteps = 300; // ms (max ~200 steps/min)
-  const stepDistance = 0.762; // meters per step
-  const caloriesPerStep = 0.04; // calories per step
+  // STRICT step detection parameters (harder to trigger false steps)
+  const stepThreshold = 10.5; // Higher threshold (was 9.0)
+  const minAcceleration = 9.0; // Narrower range (was 8.0)
+  const maxAcceleration = 13.0; // Narrower range (was 15.0)
+  const minTimeBetweenSteps = 400; // Longer debounce (was 300ms) - max ~150 steps/min
+  const requiredPeakCount = 3; // Require 3 consecutive peaks before counting
+  const stepDistance = 0.762;
+  const caloriesPerStep = 0.04;
   
   const lastStepTime = useRef<number>(0);
   const sensorSupported = useRef<boolean>(false);
   const debugCount = useRef<number>(0);
   const accelerationHistory = useRef<number[]>([]);
-  const peakDetected = useRef<boolean>(false);
+  const peakCount = useRef<number>(0);
   const stepTimeout = useRef<NodeJS.Timeout | null>(null);
+  const lastValidStepMagnitude = useRef<number>(0);
 
   // Detect device type
   useEffect(() => {
@@ -40,7 +43,7 @@ export default function StepCounter() {
         setDeviceType('Android');
         logDebug('🤖 Device: Android');
       } else if (/Mobile/.test(ua)) {
-        setDeviceType('Android'); // Other mobile devices
+        setDeviceType('Android');
         logDebug('📱 Device: Mobile');
       } else {
         setDeviceType('Desktop');
@@ -51,28 +54,26 @@ export default function StepCounter() {
     detectDevice();
   }, []);
 
-  // Check sensor support on mount
+  // Check sensor support
   useEffect(() => {
     const checkSensorSupport = () => {
-      logDebug('🔍 Checking sensor support...');
+      logDebug('🔍 Checking sensors...');
       
       if (typeof DeviceMotionEvent !== 'undefined') {
         sensorSupported.current = true;
-        logDebug('✓ Motion sensors supported');
+        logDebug('✓ Sensors supported');
         
-        // Check permission requirements
         if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
           logDebug('ℹ️ iOS 13+ - permission required');
-          // Don't auto-request, wait for user gesture
         } else {
-          logDebug('✓ No permission required');
+          logDebug('✓ No permission needed');
           setPermissionGranted(true);
         }
       } else {
         sensorSupported.current = false;
-        logDebug('✗ Motion sensors NOT supported');
-        setError('Your device does not support motion sensors. Please use a smartphone or tablet.');
-        setStatus('Device not supported');
+        logDebug('✗ Sensors NOT supported');
+        setError('Device does not support motion sensors');
+        setStatus('Not supported');
       }
     };
 
@@ -86,17 +87,15 @@ export default function StepCounter() {
   const logDebug = (message: string) => {
     setDebugInfo(prev => {
       const lines = prev.split('\n').filter(l => l.trim());
-      return [...lines.slice(-6), message].join('\n');
+      return [...lines.slice(-5), message].join('\n');
     });
   };
 
-  // Request permission (iOS 13+)
   const requestPermission = async () => {
     setError('');
     logDebug('📱 Requesting permission...');
     setStatus('Requesting permission...');
     
-    // Check if permission API exists
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
       try {
         const permissionState = await (DeviceMotionEvent as any).requestPermission();
@@ -106,23 +105,17 @@ export default function StepCounter() {
           setPermissionGranted(true);
           startCounting();
         } else {
-          setError('Permission denied. Please enable in: Settings → Safari → Motion & Orientation');
+          setError('Permission denied. Settings → Safari → Motion & Orientation → Enable');
           setStatus('Permission denied');
-          logDebug('✗ Permission denied by user');
         }
       } catch (error: any) {
         logDebug(`✗ Error: ${error.message}`);
-        
-        // iOS-specific error handling
         if (deviceType === 'iOS') {
-          setError('iOS requires permission. Go to: Settings → Safari → Motion & Orientation → Enable');
-        } else {
-          setError('Permission error: ' + error.message);
+          setError('iOS: Settings → Safari → Motion & Orientation → Enable');
         }
-        setStatus('Error requesting permission');
+        setStatus('Error');
       }
     } else {
-      // Non-iOS or older iOS - no permission needed
       setPermissionGranted(true);
       startCounting();
     }
@@ -130,18 +123,17 @@ export default function StepCounter() {
 
   const startCounting = () => {
     if (!sensorSupported.current) {
-      setError('Motion sensors not supported on this device');
+      setError('Motion sensors not supported');
       setStatus('Not supported');
       return;
     }
 
     setError('');
     setIsCounting(true);
-    setStatus('🚶 Walking... Keep moving!');
-    logDebug('✓ Step counting started');
+    setStatus('🚶 Walking... Phone must move rhythmically!');
+    logDebug('✓ Counting started (STRICT mode)');
     logDebug(`📊 Threshold: ${stepThreshold} m/s²`);
     
-    // Add motion listener
     window.addEventListener('devicemotion', handleMotion);
   };
 
@@ -149,12 +141,9 @@ export default function StepCounter() {
     setIsCounting(false);
     setStatus('⏸ Paused');
     window.removeEventListener('devicemotion', handleMotion);
-    logDebug('⏸ Stopped counting');
+    logDebug('⏸ Stopped');
     
-    if (stepTimeout.current) {
-      clearTimeout(stepTimeout.current);
-      stepTimeout.current = null;
-    }
+    if (stepTimeout.current) clearTimeout(stepTimeout.current);
   };
 
   const resetCounter = () => {
@@ -163,42 +152,37 @@ export default function StepCounter() {
     setDistance(0);
     setError('');
     setDebugInfo('');
-    setStatus('Counter reset. Ready to count steps');
+    setStatus('Reset. Ready to count steps');
     accelerationHistory.current = [];
-    peakDetected.current = false;
+    peakCount.current = 0;
+    lastValidStepMagnitude.current = 0;
   };
 
-  // Improved step detection algorithm
+  // STRICT step detection - requires rhythmic walking pattern
   const handleMotion = (event: DeviceMotionEvent) => {
     if (!isCounting) return;
 
     const acceleration = event.accelerationIncludingGravity;
-    if (!acceleration) {
-      logDebug('✗ No acceleration data');
-      return;
-    }
+    if (!acceleration) return;
 
-    // Get acceleration values
     const accX = acceleration.x || 0;
     const accY = acceleration.y || 0;
     const accZ = acceleration.z || 0;
     
-    // Calculate magnitude
     const magnitude = Math.sqrt(accX * accX + accY * accY + accZ * accZ);
     
-    // Store history for peak detection
+    // Store history
     accelerationHistory.current.push(magnitude);
-    if (accelerationHistory.current.length > 10) {
+    if (accelerationHistory.current.length > 20) {
       accelerationHistory.current.shift();
     }
     
-    // Debug logging every 15 readings
+    // Debug every 20 readings
     debugCount.current++;
-    if (debugCount.current % 15 === 0) {
-      logDebug(`📊 Accel: ${magnitude.toFixed(2)} m/s²`);
+    if (debugCount.current % 20 === 0) {
+      logDebug(`📊 ${magnitude.toFixed(2)} m/s²`);
     }
     
-    // Check if enough time passed since last step
     const currentTime = Date.now();
     const timeSinceLastStep = currentTime - lastStepTime.current;
     
@@ -206,43 +190,62 @@ export default function StepCounter() {
       return;
     }
     
-    // Step detection logic
+    // STRICT detection:
+    // 1. Must be in narrow walking range (9-13 m/s²)
     const isWalkingRange = magnitude >= minAcceleration && magnitude <= maxAcceleration;
+    
+    // 2. Must be above threshold
     const isAboveThreshold = magnitude > stepThreshold;
     
-    // Check for peak in recent history
-    const recentMax = Math.max(...accelerationHistory.current);
-    const recentMin = Math.min(...accelerationHistory.current);
-    const hasPeakVariation = (recentMax - recentMin) > 1.5;
+    // 3. Check for consistent rhythmic pattern (last 3 peaks similar magnitude)
+    const recentMagnitudes = accelerationHistory.current.slice(-10);
+    const recentPeaks = recentMagnitudes.filter(m => m > stepThreshold);
+    const hasRhythmicPattern = recentPeaks.length >= requiredPeakCount;
     
-    // Count step if conditions met
-    if (isWalkingRange && isAboveThreshold && hasPeakVariation) {
-      // Debounce to prevent double counting
-      if (!peakDetected.current) {
-        peakDetected.current = true;
+    // 4. Check magnitude consistency (walking creates consistent peaks)
+    if (recentPeaks.length >= 2) {
+      const avgMagnitude = recentPeaks.reduce((a, b) => a + b, 0) / recentPeaks.length;
+      const magnitudeVariance = recentPeaks.reduce((sum, m) => sum + Math.pow(m - avgMagnitude, 2), 0) / recentPeaks.length;
+      const isConsistent = magnitudeVariance < 2.0; // Low variance = consistent walking
+      
+      // 5. Current magnitude should be similar to recent average
+      const isSimilarToRecent = Math.abs(magnitude - avgMagnitude) < 1.5;
+      
+      if (isWalkingRange && isAboveThreshold && hasRhythmicPattern && isConsistent && isSimilarToRecent) {
+        // Additional check: magnitude should be similar to last valid step
+        if (lastValidStepMagnitude.current > 0) {
+          const diffFromLast = Math.abs(magnitude - lastValidStepMagnitude.current);
+          if (diffFromLast > 2.0) {
+            // Too different from last step - probably random movement
+            return;
+          }
+        }
         
-        logDebug(`✓ STEP! ${magnitude.toFixed(2)} m/s²`);
+        logDebug(`✓ STEP! ${magnitude.toFixed(2)}`);
         
         setSteps(prev => {
           const newSteps = prev + 1;
           setCalories(newSteps * caloriesPerStep);
           setDistance(newSteps * stepDistance);
+          lastStepTime.current = currentTime;
+          lastValidStepMagnitude.current = magnitude;
           return newSteps;
         });
         
-        lastStepTime.current = currentTime;
+        peakCount.current = 0;
         
-        // Reset peak detection after short delay
         if (stepTimeout.current) clearTimeout(stepTimeout.current);
         stepTimeout.current = setTimeout(() => {
-          peakDetected.current = false;
+          peakCount.current = 0;
         }, minTimeBetweenSteps);
       }
-    } else {
-      // Reset peak if magnitude returns to normal
-      if (magnitude < stepThreshold - 1) {
-        peakDetected.current = false;
-      }
+    }
+    
+    // Track peaks for rhythmic pattern detection
+    if (isAboveThreshold) {
+      peakCount.current++;
+    } else if (magnitude < stepThreshold - 1) {
+      peakCount.current = 0;
     }
   };
 
@@ -253,10 +256,19 @@ export default function StepCounter() {
           {/* Header */}
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 sm:p-10 text-center">
             <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-[0.2em] mb-2">Step Counter</h1>
-            <p className="text-xs sm:text-sm font-bold opacity-80 uppercase tracking-widest">Universal - Works on All Devices</p>
+            <p className="text-xs sm:text-sm font-bold opacity-80 uppercase tracking-widest">STRICT Mode - Reduced False Steps</p>
           </div>
 
           <div className="p-6 sm:p-10">
+            {/* Accuracy Mode Info */}
+            <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl">
+              <p className="text-sm font-bold text-blue-800 mb-1">🛡️ STRICT Mode Active</p>
+              <p className="text-xs text-blue-700">
+                Requires rhythmic walking pattern. Random phone movements won't count as steps. 
+                Walk normally with phone in hand for best results!
+              </p>
+            </div>
+
             {/* Device Info */}
             <div className="mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-200">
               <div className="flex justify-between items-center mb-2">
@@ -268,7 +280,7 @@ export default function StepCounter() {
                 }`}>
                   {deviceType === 'iOS' ? '📱 iPhone/iPad' : 
                    deviceType === 'Android' ? '🤖 Android' : 
-                   '💻 Desktop/Laptop'}
+                   '💻 Desktop'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -279,58 +291,34 @@ export default function StepCounter() {
               </div>
             </div>
 
-            {/* Error Message */}
+            {/* Error */}
             {error && (
               <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-2xl">
                 <p className="text-sm font-bold text-red-800">⚠️ {error}</p>
               </div>
             )}
 
-            {/* iOS/Android Instructions */}
+            {/* Instructions */}
             {!permissionGranted && deviceType === 'iOS' && (
               <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl">
-                <p className="text-sm font-bold text-blue-800 mb-2">📱 iOS Users:</p>
+                <p className="text-sm font-bold text-blue-800 mb-2">📱 iOS:</p>
                 <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
-                  <li>Click "Grant Permission & Start" below</li>
-                  <li>Tap "Allow" when the popup appears</li>
+                  <li>Click "Grant Permission & Start"</li>
+                  <li>Tap "Allow" on popup</li>
                   <li>If denied: Settings → Safari → Motion & Orientation → Enable</li>
                 </ol>
               </div>
             )}
 
-            {!permissionGranted && deviceType === 'Android' && (
-              <div className="mb-6 p-4 bg-green-50 border-2 border-green-200 rounded-2xl">
-                <p className="text-sm font-bold text-green-800 mb-2">🤖 Android Users:</p>
-                <ol className="text-xs text-green-700 space-y-1 list-decimal list-inside">
-                  <li>Click "Start Counting" below</li>
-                  <li>If prompted, allow motion/physical activity permission</li>
-                  <li>Start walking with your phone</li>
-                </ol>
-              </div>
-            )}
-
-            {deviceType === 'Desktop' && (
-              <div className="mb-6 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-2xl">
-                <p className="text-sm font-bold text-yellow-800 mb-2">💻 Desktop Users:</p>
-                <p className="text-xs text-yellow-700">
-                  Most computers don't have motion sensors. For best results, use a smartphone or tablet.
-                </p>
-              </div>
-            )}
-
             {/* Step Display */}
             <div className="text-center mb-10">
-              <div
-                className={`text-7xl sm:text-8xl font-black text-indigo-600 mb-4 transition-all ${
-                  isCounting ? 'animate-pulse scale-105' : ''
-                }`}
-              >
+              <div className={`text-7xl sm:text-8xl font-black text-indigo-600 mb-4 transition-all ${isCounting ? 'animate-pulse scale-105' : ''}`}>
                 {steps}
               </div>
               <p className="text-gray-500 font-medium">Steps</p>
             </div>
 
-            {/* Stats Grid */}
+            {/* Stats */}
             <div className="grid grid-cols-2 gap-4 mb-10">
               <div className="bg-indigo-50 rounded-2xl p-4 text-center border border-indigo-100">
                 <p className="text-2xl font-black text-indigo-600">{distance.toFixed(2)}</p>
@@ -344,15 +332,13 @@ export default function StepCounter() {
 
             {/* Status */}
             <div className="mb-8">
-              <div className={`text-center rounded-2xl p-4 mb-4 font-bold text-sm transition-all ${
+              <div className={`text-center rounded-2xl p-4 mb-4 font-bold text-sm ${
                 isCounting ? 'bg-green-50 text-green-700 animate-pulse' :
-                error ? 'bg-red-50 text-red-700' :
-                'bg-gray-50 text-gray-700'
+                error ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'
               }`}>
                 {status}
               </div>
               
-              {/* Debug Info */}
               {debugInfo && (
                 <div className="text-center bg-black/5 rounded-xl p-3 mb-4 border border-black/10">
                   <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono">
@@ -362,7 +348,7 @@ export default function StepCounter() {
               )}
             </div>
 
-            {/* Control Buttons */}
+            {/* Buttons */}
             <div className="flex flex-col gap-4 mb-8">
               {!isCounting ? (
                 <button
@@ -374,14 +360,14 @@ export default function StepCounter() {
                       : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700'
                   }`}
                 >
-                  {permissionGranted ? '🚶 Start Counting' : '📱 Grant Permission & Start'}
+                  {permissionGranted ? '🚶 Start Walking' : '📱 Grant Permission & Start'}
                 </button>
               ) : (
                 <button
                   onClick={stopCounting}
                   className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white px-8 py-5 rounded-2xl font-black uppercase tracking-widest hover:from-red-600 hover:to-orange-600 transition-all shadow-lg"
                 >
-                  ⏸ Pause Counting
+                  ⏸ Pause
                 </button>
               )}
 
@@ -389,40 +375,41 @@ export default function StepCounter() {
                 onClick={resetCounter}
                 className="w-full bg-gray-100 text-gray-600 px-8 py-5 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
               >
-                🔄 Reset Counter
+                🔄 Reset
               </button>
             </div>
 
-            {/* Requirements */}
+            {/* Important Notes */}
             <div className="mt-8 pt-6 border-t border-gray-100">
               <h3 className="font-black text-gray-700 mb-3 text-sm">⚠️ Requirements</h3>
               <ul className="text-xs text-gray-600 space-y-2">
                 <li className="flex items-start">
                   <span className="text-indigo-600 font-black mr-2">•</span>
-                  <span><strong>Smartphone or tablet</strong> with accelerometer (iPhone, Android, iPad)</span>
+                  <span><strong>Smartphone/tablet</strong> with accelerometer</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-indigo-600 font-black mr-2">•</span>
-                  <span><strong>HTTPS connection</strong> (or localhost for testing)</span>
+                  <span><strong>HTTPS</strong> (or localhost)</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-indigo-600 font-black mr-2">•</span>
-                  <span><strong>iOS users:</strong> Must grant motion sensor permission in Settings</span>
+                  <span><strong>iOS:</strong> Settings → Safari → Motion & Orientation → Enable</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-indigo-600 font-black mr-2">•</span>
-                  <span>Hold phone in hand or keep in pocket while walking normally</span>
+                  <span><strong>Walk normally</strong> with phone in hand (not shaking!)</span>
                 </li>
               </ul>
             </div>
 
             {/* How It Works */}
             <div className="mt-6 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-              <h3 className="font-black text-indigo-700 mb-2 text-xs uppercase tracking-widest">🔧 How It Works</h3>
+              <h3 className="font-black text-indigo-700 mb-2 text-xs uppercase tracking-widest">🔧 How STRICT Mode Works</h3>
               <p className="text-xs text-indigo-600 leading-relaxed">
-                The step counter uses your device's accelerometer to detect walking motion. 
-                When you walk, your phone creates acceleration patterns between 8-15 m/s². 
-                Our algorithm detects these peaks and counts them as steps. Walk normally for best results!
+                Requires <strong>rhythmic walking pattern</strong> with consistent acceleration peaks. 
+                Random movements (shaking, tapping, waving) won't count because they don't create 
+                the consistent pattern that walking does. Walk at normal pace for 10-20 seconds 
+                to start counting steps!
               </p>
             </div>
           </div>
