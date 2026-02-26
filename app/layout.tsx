@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import FloatingRatingButton from '@/components/FloatingRatingButton'
 
 export const metadata: Metadata = {
   title: 'Cross-Cultural Fitness Intelligence',
@@ -23,8 +24,8 @@ export default function RootLayout({
       <body className="antialiased selection:bg-indigo-100 selection:text-indigo-900">
         <nav className="fixed top-0 left-0 w-full z-[100] pointer-events-none p-4 sm:p-6">
           <div className="max-w-7xl mx-auto flex justify-end">
-            <a 
-              href="/admin" 
+            <a
+              href="/admin"
               className="pointer-events-auto flex items-center justify-center w-10 h-10 bg-white/90 backdrop-blur-md text-gray-400 hover:text-indigo-600 transition-all rounded-xl shadow-xl border border-white group"
               title="Controller Login"
             >
@@ -37,6 +38,7 @@ export default function RootLayout({
         </nav>
         <main className="relative">
           {children}
+          <FloatingRatingButton />
         </main>
       </body>
     </html>

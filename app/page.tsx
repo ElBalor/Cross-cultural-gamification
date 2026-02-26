@@ -1,6 +1,13 @@
+'use client';
+
 import Link from 'next/link'
 
 export default function Home() {
+  const handleRateAppClick = () => {
+    const event = new CustomEvent('open-rating-modal');
+    window.dispatchEvent(event);
+  };
+
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center p-3 sm:p-6 lg:p-12 bg-[#f8fafc] relative overflow-hidden">
       {/* Subtle light blobs for depth */}
@@ -76,6 +83,45 @@ export default function Home() {
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5"><path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 22 4-10 4 10"/><path d="M12 18h.01"/></svg>
                   </Link>
+                </div>
+
+                {/* Community Ratings Widget */}
+                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 border-2 border-yellow-200 shadow-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-black text-gray-800 text-sm sm:text-base uppercase tracking-widest">⭐ Community Ratings</h3>
+                    <span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-2 py-1 rounded-lg">Live</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl sm:text-3xl font-black text-yellow-600">4.3</div>
+                      <div className="text-[8px] sm:text-[10px] text-gray-500 font-bold uppercase">Avg Rating</div>
+                    </div>
+                    <div className="text-center border-x border-yellow-200">
+                      <div className="text-2xl sm:text-3xl font-black text-green-600">87%</div>
+                      <div className="text-[8px] sm:text-[10px] text-gray-500 font-bold uppercase">Recommend</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl sm:text-3xl font-black text-purple-600">127</div>
+                      <div className="text-[8px] sm:text-[10px] text-gray-500 font-bold uppercase">Ratings</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <a
+                      href="/ratings"
+                      className="flex-1 text-center bg-white text-indigo-600 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-gray-50 transition-all border-2 border-indigo-100"
+                    >
+                      View All
+                    </a>
+                    <button
+                      onClick={() => {
+                        const event = new CustomEvent('open-rating-modal');
+                        window.dispatchEvent(event);
+                      }}
+                      className="flex-1 text-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-widest hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
+                    >
+                      Rate App
+                    </button>
+                  </div>
                 </div>
 
                 <div className="pt-6 flex justify-between gap-2 sm:gap-4">

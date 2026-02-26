@@ -623,3 +623,47 @@ export async function getRatingsByActivity() {
     return [];
   }
 }
+
+export async function getPublicRatingsSummary() {
+  try {
+    const result = await sql`
+      SELECT 
+        COUNT(*) as total_ratings,
+        ROUND(AVG(overall_rating)::numeric, 1) as avg_overall,
+        ROUND(AVG(ease_of_use_rating)::numeric, 1) as avg_ease_of_use,
+        ROUND(AVG(features_rating)::numeric, 1) as avg_features,
+        ROUND(AVG(cultural_relevance_rating)::numeric, 1) as avg_cultural,
+        COUNT(CASE WHEN would_recommend = true THEN 1 END) as recommend_count,
+        COUNT(CASE WHEN would_recommend = false THEN 1 END) as not_recommend_count
+      FROM app_ratings
+    `;
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error fetching public ratings summary:", error);
+    return null;
+  }
+}
+
+export async function getRecentRatings(limit: number = 10) {
+  try {
+    const result = await sql`
+      SELECT 
+        overall_rating,
+        ease_of_use_rating,
+        features_rating,
+        cultural_relevance_rating,
+        would_recommend,
+        feedback_text,
+        activity_type,
+        created_at
+      FROM app_ratings
+      WHERE feedback_text IS NOT NULL AND feedback_text != ''
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+    return result.rows;
+  } catch (error) {
+    console.error("Error fetching recent ratings:", error);
+    return [];
+  }
+}
