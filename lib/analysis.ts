@@ -759,15 +759,25 @@ export interface ToolConfig {
     rewardName: string;
     musicGenre: string;
     locationSignal: string;
+    isDiaspora?: boolean;
+    countryOfOrigin?: string;
+    currentResidence?: string;
   };
   primaryFocus: string;
   suggestedMusic: string;
   totalParticipants: number;
 }
 
+/**
+ * Three-Layer Cultural Adaptation
+ * 
+ * Layer 1: Self-reported country of origin (PRIMARY)
+ * Layer 2: ML-detected cultural keywords
+ * Layer 3: Diaspora status (origin != residence)
+ */
 function getContextByCountry(country: string = '') {
   const c = country.toLowerCase();
-  
+
   if (c.includes('nigeria') || c.includes('naija')) {
     return {
       theme: 'nigerian-vibrant' as const,
@@ -777,7 +787,7 @@ function getContextByCountry(country: string = '') {
       locationSignal: 'West African Manifold'
     };
   }
-  
+
   if (['ghana', 'kenya', 'south africa', 'ethiopia', 'africa'].some(name => c.includes(name))) {
     return {
       theme: 'pan-african' as const,
@@ -807,30 +817,74 @@ function getContextByCountry(country: string = '') {
   };
 }
 
+/**
+ * Enhanced cultural context with three-layer validation
+ */
+export function getCulturalContext(surveyResponse: any) {
+  // Layer 1: Self-reported country of ORIGIN (not current residence!)
+  const countryOfOrigin = surveyResponse.section_a?.countryOfOrigin || 
+                          surveyResponse.section_a?.country || 
+                          '';
+  
+  // Layer 2: ML-detected cultural keywords
+  const culturalKeywords = surveyResponse.ml_metadata?.culturalKeywords || [];
+  
+  // Layer 3: Diaspora status
+  const currentResidence = surveyResponse.section_a?.currentResidence || '';
+  const isDiaspora = surveyResponse.ml_metadata?.isDiaspora || 
+                    (countryOfOrigin && currentResidence && 
+                     countryOfOrigin.toLowerCase() !== currentResidence.toLowerCase());
+
+  // Get base context from country of origin
+  const context = getContextByCountry(countryOfOrigin);
+
+  // Calculate diaspora confidence
+  let diasporaConfidence: 'high' | 'medium' | 'low' = 'low';
+  if (isDiaspora) {
+    if (culturalKeywords.length >= 2) {
+      diasporaConfidence = 'high';
+    } else if (culturalKeywords.length === 1) {
+      diasporaConfidence = 'medium';
+    }
+  }
+
+  return {
+    ...context,
+    isDiaspora,
+    diasporaConfidence,
+    countryOfOrigin,
+    currentResidence,
+    culturalKeywords,
+  };
+}
+
 export function getPrototypeConfig(surveyResponse: any): ToolConfig {
   const sb = surveyResponse.section_b || {};
   const sc = surveyResponse.section_c || {};
   const sd = surveyResponse.section_d || {};
-  const country = surveyResponse.section_a?.country || '';
 
-  const context = getContextByCountry(country);
+  // Use three-layer cultural context
+  const culturalContext = getCulturalContext(surveyResponse);
 
   return {
     showLeaderboard: (sb.leaderboards || 0) >= 4,
-    leaderboardVotes: 1, 
+    leaderboardVotes: 1,
     showSocial: (sb.socialSharing || 0) >= 3,
     socialVotes: 1,
     showRewards: (sb.pointsRewards || 0) >= 4,
     rewardsVotes: 1,
-    theme: context.theme,
+    theme: culturalContext.theme,
     culturalContext: {
-      leaderboardName: context.leaderboardName,
-      rewardName: context.rewardName,
-      musicGenre: context.musicGenre,
-      locationSignal: context.locationSignal
+      leaderboardName: culturalContext.leaderboardName,
+      rewardName: culturalContext.rewardName,
+      musicGenre: culturalContext.musicGenre,
+      locationSignal: culturalContext.locationSignal,
+      isDiaspora: culturalContext.isDiaspora,
+      countryOfOrigin: culturalContext.countryOfOrigin,
+      currentResidence: culturalContext.currentResidence,
     },
     primaryFocus: sd.visualProgress > sd.enjoyment ? 'Data Driven' : 'Experience Driven',
-    suggestedMusic: context.musicGenre,
+    suggestedMusic: culturalContext.musicGenre,
     totalParticipants: 1
   };
 }

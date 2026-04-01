@@ -17,6 +17,8 @@ export interface EncodedResponse {
       label: "positive" | "neutral" | "negative";
     };
     culturalKeywords?: string[];
+    diasporaIndicators?: string[];
+    isDiaspora?: boolean;
   };
 }
 
@@ -252,6 +254,7 @@ class MLEncoder {
 
     const sentiment = this.analyzeSentiment(combinedText);
     const culturalKeywords = this.extractCulturalKeywords(combinedText);
+    const diasporaIndicators = this.extractDiasporaIndicators(combinedText, surveyData.sectionA);
 
     return {
       textEmbeddings: {
@@ -262,6 +265,8 @@ class MLEncoder {
       metadata: {
         sentiment,
         culturalKeywords,
+        diasporaIndicators,
+        isDiaspora: diasporaIndicators.length > 0,
       },
     };
   }
@@ -401,6 +406,50 @@ class MLEncoder {
 
     const lowerText = text.toLowerCase();
     const found = culturalTerms.filter((term) => lowerText.includes(term));
+
+    return [...new Set(found)];
+  }
+
+  private extractDiasporaIndicators(text: string, sectionA?: any): string[] {
+    const diasporaTerms = [
+      "diaspora",
+      "abroad",
+      "overseas",
+      "immigrant",
+      "expat",
+      "expatriate",
+      "foreign",
+      "migration",
+      "relocate",
+      "relocated",
+      "living in",
+      "based in",
+      "grew up in",
+      "raised in",
+      "miss home",
+      "homesick",
+      "dual identity",
+      "heritage",
+      "roots",
+      "homeland",
+      "cultural disconnect",
+      "belonging",
+      "second generation",
+      "first generation",
+    ];
+
+    const lowerText = text.toLowerCase();
+    const found = diasporaTerms.filter((term) => lowerText.includes(term));
+
+    // Also check if country of origin differs from current residence
+    if (sectionA) {
+      const origin = (sectionA.countryOfOrigin || "").toLowerCase();
+      const residence = (sectionA.currentResidence || "").toLowerCase();
+      
+      if (origin && residence && origin !== residence) {
+        found.push("diaspora_mismatch"); // Flag for programmatic detection
+      }
+    }
 
     return [...new Set(found)];
   }

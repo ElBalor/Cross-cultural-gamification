@@ -23,7 +23,8 @@ export default function SurveyPage() {
 
     if (!formData.get("age")) newErrors.age = "Age is required";
     if (!formData.get("gender")) newErrors.gender = "Gender is required";
-    if (!formData.get("country")) newErrors.country = "Country/Region is required";
+    if (!formData.get("countryOfOrigin")) newErrors.countryOfOrigin = "Country of Origin is required";
+    if (!formData.get("currentResidence")) newErrors.currentResidence = "Current Residence is required";
     if (!formData.get("activityFrequency")) newErrors.activityFrequency = "Required";
 
     const sectionBFields = ["pointsRewards", "leaderboards", "progressTracking", "achievements", "personalizedChallenges", "socialSharing", "dailyStreaks", "unlockableContent"];
@@ -149,8 +150,32 @@ export default function SurveyPage() {
                   <input type="text" name="age" className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-600 focus:bg-white transition-all outline-none font-bold" placeholder="e.g. 24" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">3. Country {errors.country && <span className="text-red-500">*</span>}</label>
-                  <input type="text" name="country" className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-600 focus:bg-white transition-all outline-none font-bold" placeholder="e.g. Nigeria" />
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">2. Gender {errors.gender && <span className="text-red-500">*</span>}</label>
+                  <input type="text" name="gender" className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-600 focus:bg-white transition-all outline-none font-bold" placeholder="e.g. Male/Female/Other" />
+                </div>
+              </div>
+
+              <div className="mt-8 space-y-4">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">3. Country of Origin / Cultural Background {errors.countryOfOrigin && <span className="text-red-500">*</span>}</label>
+                <input type="text" name="countryOfOrigin" className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-600 focus:bg-white transition-all outline-none font-bold" placeholder="e.g. Nigeria (where you're from culturally)" />
+              </div>
+
+              <div className="mt-4 space-y-4">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">4. Current Country of Residence {errors.currentResidence && <span className="text-red-500">*</span>}</label>
+                <input type="text" name="currentResidence" className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-600 focus:bg-white transition-all outline-none font-bold" placeholder="e.g. USA (where you currently live)" />
+              </div>
+
+              <div className="mt-8 space-y-4">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">5. Weekly Activity {errors.activityFrequency && <span className="text-red-500">*</span>}</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {["0 days", "1–2 days", "3–4 days", "5+ days"].map(o => (
+                    <label key={o} className="relative cursor-pointer">
+                      <input type="radio" name="activityFrequency" value={o} className="peer sr-only" />
+                      <div className="p-4 text-center border-2 border-gray-100 rounded-2xl font-bold text-sm text-gray-600 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 peer-checked:text-indigo-600 transition-all">
+                        {o}
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
 

@@ -23,6 +23,8 @@ export async function submitSurvey(formData: FormData) {
         age: formData.get("age") as string,
         gender: formData.get("gender") as string,
         country: formData.get("country") as string,
+        countryOfOrigin: formData.get("countryOfOrigin") as string,
+        currentResidence: formData.get("currentResidence") as string,
         activityFrequency: formData.get("activityFrequency") as string,
       },
       sectionB: {

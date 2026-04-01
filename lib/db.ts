@@ -28,7 +28,10 @@ export async function initDatabase() {
         section_c JSONB NOT NULL,
         section_d JSONB NOT NULL,
         embeddings JSONB,
-        ml_metadata JSONB
+        ml_metadata JSONB,
+        timezone VARCHAR(50),
+        country_of_origin VARCHAR(100),
+        current_residence VARCHAR(100)
       )
     `;
 
@@ -82,6 +85,32 @@ export async function initDatabase() {
         metric_value DECIMAL(15,4),
         metadata JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
+    // Create user_sessions table for timezone inference
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        survey_response_id INTEGER REFERENCES survey_responses(id),
+        session_id VARCHAR(255),
+        login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        logout_time TIMESTAMP,
+        ip_address INET,
+        user_agent TEXT,
+        page_views INTEGER DEFAULT 0,
+        metadata JSONB
+      )
+    `;
+
+    // Create activity_logs table for behavioral pattern analysis
+    await sql`
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id SERIAL PRIMARY KEY,
+        survey_response_id INTEGER REFERENCES survey_responses(id),
+        activity_type VARCHAR(100),
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        metadata JSONB
       )
     `;
 
